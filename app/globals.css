@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-page text-ink antialiased;
+  background-image:
+    radial-gradient(1200px 600px at 85% -10%, rgba(74, 58, 167, 0.05), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(27, 175, 122, 0.05), transparent 60%);
+  background-attachment: fixed;
+}
+
+/* Recessive scrollbars that fit the soft aesthetic */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #d6d4cc transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #d6d4cc;
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Streaming intro caret */
+.stream-caret::after {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  border-radius: 2px;
+  background: #4a3aa7;
+  animation: caret-blink 0.9s steps(2) infinite;
+}
+@keyframes caret-blink {
+  50% { opacity: 0; }
+}
+
+/* Shimmer placeholder for a chart that hasn't arrived yet */
+.shimmer {
+  background: linear-gradient(90deg, #f1f0eb 25%, #faf9f6 50%, #f1f0eb 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.6s linear infinite;
+}

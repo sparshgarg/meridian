@@ -69,6 +69,81 @@ If you need something outside your ownership boundary, ask the other person via 
 - The agent should stream responses as "chapters" — each chapter is a short text intro + a rendered visual + optional callouts.
 - If the answer is a paragraph, we've failed the brief.
 
+## Frontend status & architecture (Person B — updated July 18, 2026)
+
+The full frontend is BUILT and WORKING in mock mode. `npm install && npm run dev`
+— zero keys needed. It streams a complete demo answer (all three wow moments)
+from a scripted mock. Person A: your entire integration surface is documented
+below; the frontend never needs to change when you go live.
+
+### Layout
+One full-screen workspace at `/`: a 390px chat rail (left) + a large answer
+canvas (right). Answers render on the canvas as a stack of "chapter" cards:
+numbered header + streamed text intro + one visual + optional callout cards.
+The rail shows the user's messages, a live status ticker of agent/tool activity
+(ClickHouse queries etc.), and compact "N chapters on canvas" chips that
+re-select past answers.
+
+### Design system
+Light theme, off-white page (`#f4f3ef`), card surface `#fcfcfb`. Fluent-style
+layered depth shadows (`shadow-depth-4/8/16` in `tailwind.config.ts`), rounded
+2xl/3xl everywhere, framer-motion spring entrances, lucide icons. Fonts: Inter
+(body) + Space Grotesk (display) via next/font. Chart colors are a validated
+CVD-safe palette in `components/charts/palette.ts` — categorical slots are
+assigned in fixed order (tickets=blue, transcripts=green, deal_losses=magenta);
+sequential magnitude uses a single blue ramp; status colors are reserved and
+always paired with icon+label. Do not invent new chart colors.
+
+### THE INTEGRATION CONTRACT (Person A: read this + `/types/chapter.ts`)
+Single seam: `POST /app/api/chat/route.ts`. The frontend sends a `ChatRequest`
+(`{ conversation_id, messages }`) and reads back **NDJSON** — one JSON-encoded
+`StreamEvent` per line (types in `/types/chapter.ts`):
+
+1. `message_start` → begins an answer
+2. `status` (state running→done) → rows in the rail's live ticker; emit one per
+   tool call / ClickHouse query, with a `detail` like "4,812 rows · 41ms"
+3. `chapter_start` → new card on the canvas (title + icon name)
+4. `chapter_intro_delta` → append text to that chapter's intro (word chunks)
+5. `chapter_visual` → the chapter's chart. `visual.data` is **literally your
+   tool's typed output** from `/types/agent-tools.ts` — no reshaping:
+   `opportunity_ranking`=ListOpportunitiesOutput, `evidence_cards`=GetThemeEvidenceOutput,
+   `competitor_matrix`=GetCompetitivePositionOutput, `impact_waterfall`=GetImpactProjectionOutput.
+   Frontend-shaped visuals (`stat_row`, `volume_trap`, `trend_lines`) have their
+   small data shapes defined in `/types/chapter.ts`.
+6. `chapter_callout` → highlighted insight/warning/recommendation card
+7. `message_end` (with a one-line `headline`) → renders the gradient summary banner
+
+To go live: branch in `route.ts` on `NEXT_PUBLIC_AGENT_MODE === 'live'`, trigger
+the `chat.agent()` run, pipe its output through as this same NDJSON. The mock
+path (`app/api/chat/mock/*`) is the reference implementation — it shows exact
+event ordering, pacing, and realistic data for every visual. Helper functions
+for building events are stubbed in `/trigger/agent.ts`.
+
+Adding a new visual type = PR to `/types/chapter.ts` (add union member) + Person
+B builds the component and adds a case in `components/canvas/visual-renderer.tsx`.
+
+### Frontend file map (Person B owns)
+- `app/(chat)/page.tsx` — the workspace (rail + canvas)
+- `app/api/chat/route.ts` — mock NDJSON stream; THE integration seam
+- `app/api/chat/mock/` — scenario scripts + mock tool outputs (4 scenarios,
+  keyword-routed: prioritize / dunning-volume / competitive / usage-evidence)
+- `components/chat/` — use-chat.ts (stream reader + state), chat-rail, composer,
+  status-ticker, suggested-prompts
+- `components/canvas/` — canvas, chapter-card, visual-renderer, callout-card, empty-state
+- `components/charts/` — palette.ts, chart-frame, opportunity-ranking,
+  volume-trap, competitor-matrix, impact-waterfall, evidence-cards, trend-lines, stat-row
+
+### Infra scaffolding (created by Person B at user request; Person A owns contents)
+- `trigger.config.ts` — Trigger.dev v3 config, reads TRIGGER_PROJECT_REF from env
+- `/trigger/agent.ts` — skeleton + typed StreamEvent helpers; real chat.agent() is yours
+- `/lib/db/clickhouse.ts` — lazy @clickhouse/client singleton, env-driven
+- `.env.example` — every env var documented; copy to `.env.local`. Keys are NOT
+  set yet; frontend runs with none (NEXT_PUBLIC_AGENT_MODE=mock is the default)
+
+### Style deviations (deliberate)
+- Next.js requires default exports for `page.tsx`/`layout.tsx`/`route.ts` — the
+  named-exports rule applies everywhere else.
+
 ## Style
 - TypeScript strict mode. No `any` types.
 - Async/await, not `.then()`.
