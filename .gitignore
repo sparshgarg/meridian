@@ -1,0 +1,28 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+next-env.d.ts
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+
+# env — real keys never get committed; .env.example is the template
+.env
+.env.local
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+# trigger.dev
+.trigger
