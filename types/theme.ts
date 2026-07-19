@@ -7,4 +7,6 @@ export interface Theme {
   category: 'billing' | 'invoicing' | 'tax' | 'revrec' | 'integrations' | 'other';
   first_seen_at: string;           // ISO date
   last_seen_at: string;
+  created_at: string;              // ISO datetime
+  updated_at: string;              // ISO datetime
 }

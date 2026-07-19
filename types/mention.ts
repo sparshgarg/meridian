@@ -1,4 +1,5 @@
 import type { ThemeId } from './theme';
+import type { Account } from './account';
 
 export interface Mention {
   mention_id: string;              // UUID
@@ -7,6 +8,7 @@ export interface Mention {
   source_id: string;               // ticket_id / transcript_id / deal_id
   account_id: string;
   account_arr: number;             // denormalized for query speed
+  account_segment: Account['segment']; // denormalized — avoids a Postgres join
   severity: 1 | 2 | 3 | 4 | 5;     // 5 = blocking, 1 = passing mention
   sentiment: -1 | 0 | 1;           // negative / neutral / positive
   verbatim_snippet: string;        // the actual quote (~200 char max)

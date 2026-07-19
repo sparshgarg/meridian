@@ -7,28 +7,44 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "trigger:dev": "npx trigger.dev@latest dev"
+    "trigger:dev": "npx trigger.dev@latest dev",
+    "db:init": "tsx scripts/init-schema.ts",
+    "seed:load": "tsx scripts/generate-data.ts --load-seeds",
+    "seed:generate": "tsx scripts/generate-data.ts --generate",
+    "seed:dry": "tsx scripts/generate-data.ts --generate --dry-run"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.16",
+    "@ai-sdk/google": "^4.0.18",
+    "@ai-sdk/openai": "^4.0.16",
     "@clickhouse/client": "^1.4.0",
+    "@trigger.dev/react-hooks": "^3.3.17",
     "@trigger.dev/sdk": "^3.3.0",
+    "ai": "^7.0.31",
     "clsx": "^2.1.1",
+    "date-fns": "^4.4.0",
     "framer-motion": "^11.5.4",
     "lucide-react": "^0.441.0",
     "next": "^14.2.15",
+    "p-limit": "^7.3.0",
+    "pg": "^8.22.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^2.12.7",
     "tailwind-merge": "^2.5.2",
+    "uuid": "^14.0.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^20.16.5",
+    "@types/pg": "^8.20.0",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.20",
+    "dotenv": "^17.4.2",
     "postcss": "^8.4.45",
     "tailwindcss": "^3.4.10",
+    "tsx": "^4.23.1",
     "typescript": "^5.5.4"
   }
 }

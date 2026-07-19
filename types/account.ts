@@ -9,5 +9,6 @@ export interface Account {
     renewal_date: string;            // ISO date
     primary_contact_name: string;
     primary_contact_role: string;
-    updated_at: string;
+    created_at: string;              // ISO datetime
+    updated_at: string;              // ISO datetime
   }
