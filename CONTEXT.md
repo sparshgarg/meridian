@@ -205,7 +205,7 @@ Three are **frontend-shaped** — transforms in `lib/queries/transforms.ts` (`to
 5. [x] `docs/architecture.md` with Mermaid OLTP+OLAP diagram
 
 ### Phase A5 — Deploy + submit ⏳ PARTIAL
-1. [x] `npx trigger.dev@4.5.5 deploy` — **SUCCEEDED** 2026-07-21 as version `20260721.1` (6 tasks). Cloud smoke: `stream-meridian-answer` → 6 chapters / COMPLETED / correct prioritize headline (`CLOUD VERIFY OK`).
+1. [x] `npx trigger.dev@4.5.5 deploy` — **SUCCEEDED** 2026-07-21 as version `20260721.2` (6 tasks). Production smoke: initial 2-module answer plus typed dunning and multi-entity deep dives completed with fresh ClickHouse statuses.
 2. [x] `SUBMISSION.md` updated with real verified counts
 3. [ ] Demo video — **user records** (open on live product, max 5 min)
 4. [x] MIT `LICENSE`; `README.md` rewritten (was 2-line placeholder)
@@ -282,14 +282,14 @@ Phases A1–A4 + live extraction + agent E2E + Trigger Cloud deploy + **Sparsh V
 | --- | --- |
 | Data pipeline + extraction (1,802 mentions) | ✅ Done |
 | Scoring + hybrid agent + E2E | ✅ Done |
-| Trigger Cloud deploy `20260721.1` | ✅ Done |
+| Trigger Cloud deploy `20260721.2` | ✅ Done |
 | Vercel Production (Sparsh) live mode | ✅ Done |
 | Public GitHub `sparshgarg/meridian` | ✅ Done |
 | **Demo video** (≤5 min on live URL) | ❌ User records |
 | **Hackathon submission form** | ❌ User (deadline midnight AoE Jul 23) |
 
 ### Must do before submit
-1. [x] **Trigger Cloud deploy** — version `20260721.1` live; cloud stream verify OK
+1. [x] **Trigger Cloud deploy** — version `20260721.2` live; progressive-disclosure stream verify OK
 2. [x] **Vercel Production on Sparsh's account** — project `meridian`, URL `https://meridian-blush-iota.vercel.app`, `NEXT_PUBLIC_AGENT_MODE=live` + DB/Trigger/Anthropic env set; homepage + live chat smoke OK. Teammate URL superseded.
 3. [ ] **Record demo video** — open on live product (`https://meridian-blush-iota.vercel.app`), ≤5 min, land three wow moments
 4. [ ] **Hackathon submission form** — morning July 23 preferred (deadline midnight AoE July 23)
@@ -313,12 +313,13 @@ Repo is already **public**. Do not change scoring code unless user asks.
 - **Vercel Production (Sparsh):** `sparshgarg98-2119s-projects/meridian` → `https://meridian-blush-iota.vercel.app` (`NEXT_PUBLIC_AGENT_MODE=live`, smoke OK 2026-07-21)
 - Postgres: 123 accounts / 956 tickets / 63 transcripts / 14 deals (11 lost) — re-counted live
 - ClickHouse: **1,802 mentions** (dunning 582) — re-counted live; ~97% source coverage after backfill (a few leftover sources without mentions are expected)
-- Trigger.dev: **v4.5.5**; Cloud deploy **`20260721.1`** ✅; `stream-meridian-answer` cloud smoke OK (6 chapters)
+- Trigger.dev: **v4.5.5**; Cloud deploy **`20260721.2`** ✅; production stream smoke confirmed 2 initial modules plus fresh typed deep dives
 - Scoring: **`build_next ≥53`** (commit `fd71349`) — usage #1 build_now / multi #2 build_next / dunning deprioritize / LATAM deprioritize
 - Agent E2E passed (`scripts/e2e-live-stream.ts`); Trigger path preferred, in-process fallback remains
 - A4 sync + architecture docs on main; A5 LICENSE/README/SUBMISSION on main
 
 ### Recent commits on main
+- `8708c62` — Progressive-disclosure recommendations with typed deep-dive requests
 - `64094b6` — Document Sparsh Vercel Production URL after live deploy
 - `3bf4a50` — Point CONTEXT.md at sparshgarg/meridian GitHub repo
 - `ce38fd1` — Note successful Trigger Cloud deploy
