@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Building2, CalendarRange, FileSearch, Swords, TrendingUp } from 'lucide-react';
+import { BarChart3, Building2, CalendarRange, Layers3, TrendingUp } from 'lucide-react';
 
 const SUGGESTIONS = [
   {
@@ -16,19 +16,26 @@ const SUGGESTIONS = [
   },
   {
     icon: TrendingUp,
-    label: 'What themes are growing fastest?',
+    label: 'Which themes are growing fastest over the last 90 days?',
     tint: 'text-aqua bg-aqua-soft',
   },
   {
-    icon: Swords,
-    label: 'Where are competitors beating us?',
+    icon: BarChart3,
+    label: 'Compare usage-based billing with dunning for enterprise accounts',
     tint: 'text-blue bg-blue-soft',
   },
   {
-    icon: FileSearch,
-    label: 'Show me the evidence for usage-based billing',
+    icon: Layers3,
+    label: 'Are support tickets or interviews driving multi-entity demand?',
     tint: 'text-coral bg-coral-soft',
   },
+];
+
+const MORE_SUGGESTIONS = [
+  'What do customers in healthcare want?',
+  'Where are competitors beating us on usage-based billing?',
+  'Show evidence for multi-entity invoicing',
+  'What is the ARR impact of usage-based billing?',
 ];
 
 interface SuggestedPromptsProps {
@@ -59,5 +66,23 @@ export const SuggestedPrompts = ({ onPick, disabled }: SuggestedPromptsProps): J
         {s.label}
       </motion.button>
     ))}
+    <details className="rounded-xl px-1 pt-1 text-xs text-ink-muted">
+      <summary className="cursor-pointer font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+        More supported questions
+      </summary>
+      <div className="mt-2 space-y-1.5">
+        {MORE_SUGGESTIONS.map((prompt) => (
+          <button
+            key={prompt}
+            type="button"
+            disabled={disabled}
+            onClick={() => onPick(prompt)}
+            className="block w-full rounded-xl px-2 py-2 text-left text-ink-secondary transition hover:bg-card disabled:opacity-50"
+          >
+            {prompt}
+          </button>
+        ))}
+      </div>
+    </details>
   </div>
 );

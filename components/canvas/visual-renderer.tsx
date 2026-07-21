@@ -9,6 +9,9 @@ import { StatRow } from '@/components/charts/stat-row';
 import { TrendLines } from '@/components/charts/trend-lines';
 import { VolumeTrap } from '@/components/charts/volume-trap';
 import { AccountSnapshot } from '@/components/charts/account-snapshot';
+import { ComparisonBars } from '@/components/charts/comparison-bars';
+import { SourceMix } from '@/components/charts/source-mix';
+import { NoDataState } from './no-data-state';
 
 // The one switch that maps the streaming contract onto chart components.
 // Adding a visual = add a member to ChapterVisual in /types/chapter.ts,
@@ -33,5 +36,11 @@ export const VisualRenderer = ({ visual }: { visual: ChapterVisual }): JSX.Eleme
       return <AccountSnapshot data={visual.data} />;
     case 'trend_lines':
       return <TrendLines series={visual.data.series} />;
+    case 'comparison_bars':
+      return <ComparisonBars data={visual.data} />;
+    case 'source_mix':
+      return <SourceMix data={visual.data} />;
+    case 'no_data':
+      return <NoDataState outcome={visual.data} />;
   }
 };

@@ -22,6 +22,7 @@ export interface AssistantTurn {
   chapters: Chapter[];
   headline?: string;
   error?: string;
+  retryable?: boolean;
 }
 
 export interface UserTurn {
@@ -43,8 +44,22 @@ interface ChatState {
 
 const applyEvent = (turn: AssistantTurn, event: StreamEvent): AssistantTurn => {
   switch (event.type) {
+    case 'message_start':
+      return {
+        ...turn,
+        statuses: turn.statuses.map((status) =>
+          status.id.endsWith('_sending')
+            ? { ...status, state: 'done', detail: 'Server connected' }
+            : status,
+        ),
+      };
     case 'status': {
-      const rest = turn.statuses.filter((s) => s.id !== event.status.id);
+      const acknowledged = turn.statuses.map((status) =>
+        status.id.endsWith('_sending') && status.state === 'running'
+          ? { ...status, state: 'done' as const, detail: 'Server connected' }
+          : status,
+      );
+      const rest = acknowledged.filter((s) => s.id !== event.status.id);
       return { ...turn, statuses: [...rest, event.status] };
     }
     case 'chapter_start':
@@ -73,10 +88,12 @@ const applyEvent = (turn: AssistantTurn, event: StreamEvent): AssistantTurn => {
       }));
     case 'chapter_actions':
       return mapChapter(turn, event.chapter_id, (c) => ({ ...c, actions: event.actions }));
+    case 'no_data':
+      return turn;
     case 'message_end':
       return { ...turn, state: 'done', headline: event.headline };
     case 'error':
-      return { ...turn, state: 'error', error: event.message };
+      return { ...turn, state: 'error', error: event.message, retryable: event.retryable ?? true };
     default:
       return turn;
   }
@@ -137,7 +154,18 @@ export const useChat = () => {
     const userTurn: UserTurn = { role: 'user', id: `u_${Date.now().toString(36)}`, content };
     const assistantId = `a_${Date.now().toString(36)}`;
     const assistantTurn: AssistantTurn = {
-      role: 'assistant', id: assistantId, state: 'streaming', statuses: [], chapters: [],
+      role: 'assistant',
+      id: assistantId,
+      state: 'streaming',
+      statuses: [{
+        id: `${assistantId}_sending`,
+        label: 'Understanding your question',
+        detail: 'Contacting Trigger.dev',
+        state: 'running',
+        source: 'trigger',
+        phase: 'understanding',
+      }],
+      chapters: [],
     };
     const parentTurnId = action ? stateRef.current.activeTurnId : null;
     const parentEntry = parentTurnId
@@ -174,7 +202,10 @@ export const useChat = () => {
       }));
     };
 
+    let timeout: number | undefined;
     try {
+      const controller = new AbortController();
+      timeout = window.setTimeout(() => controller.abort(), 185_000);
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -185,12 +216,16 @@ export const useChat = () => {
             ? { type: 'deep_dive', id: action.id, theme_id: action.theme_id }
             : undefined,
         } satisfies ChatRequest),
+        signal: controller.signal,
       });
-      if (!res.ok || !res.body) throw new Error(`agent returned ${res.status}`);
+      if (!res.ok || !res.body) {
+        throw new Error(`Agent returned HTTP ${res.status}`);
+      }
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      let terminal = false;
       for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -198,17 +233,40 @@ export const useChat = () => {
         const lines = buffer.split('\n');
         buffer = lines.pop() ?? '';
         for (const line of lines) {
-          if (line.trim()) update(JSON.parse(line) as StreamEvent);
+          if (!line.trim()) continue;
+          const event = JSON.parse(line) as StreamEvent;
+          update(event);
+          if (event.type === 'message_end' || event.type === 'error') terminal = true;
         }
       }
+      if (buffer.trim()) {
+        const event = JSON.parse(buffer) as StreamEvent;
+        update(event);
+        if (event.type === 'message_end' || event.type === 'error') terminal = true;
+      }
+      if (!terminal) throw new Error('The answer stream ended before completion.');
     } catch (err) {
-      update({ type: 'error', message: err instanceof Error ? err.message : 'connection lost' });
+      const timedOut = err instanceof DOMException && err.name === 'AbortError';
+      update({
+        type: 'error',
+        code: timedOut ? 'timeout' : 'network',
+        retryable: true,
+        message: timedOut
+          ? 'The agent took too long to respond.'
+          : err instanceof Error ? err.message : 'Connection lost.',
+      });
     } finally {
+      if (timeout !== undefined) window.clearTimeout(timeout);
       setState((s) => ({ ...s, isStreaming: false }));
     }
   }, []);
 
   const sendMessage = useCallback((content: string): Promise<void> => submit(content), [submit]);
+  const retryTurn = useCallback((assistantId: string): Promise<void> => {
+    const index = stateRef.current.turns.findIndex((turn) => turn.id === assistantId);
+    const prior = index > 0 ? stateRef.current.turns[index - 1] : null;
+    return prior?.role === 'user' ? submit(prior.content) : Promise.resolve();
+  }, [submit]);
   const sendAction = useCallback(
     (action: VisualAction): Promise<void> => submit(action.label, action),
     [submit],
@@ -233,6 +291,7 @@ export const useChat = () => {
     ...state,
     canGoBack: state.navigation.stack.length > 0,
     sendMessage,
+    retryTurn,
     sendAction,
     setActiveTurn,
     goBack,

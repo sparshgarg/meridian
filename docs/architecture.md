@@ -72,7 +72,14 @@ flowchart LR
 
 Frontend consumes **NDJSON `StreamEvent`s** (`types/chapter.ts`):
 
-`message_start` → `status*` → (`chapter_start` → `chapter_intro_delta*` → `chapter_visual` → `chapter_callout*`)* → `message_end`
+`message_start` → `status*` → (`chapter_start` → `chapter_intro_delta*` → `chapter_visual` → `chapter_callout*`)* → (`no_data`)? → `message_end`
+
+Statuses carry a safe `source` (`trigger`, `clickhouse`, or `agent`) and phase.
+The UI shows Trigger invocation, parameterized table categories, rows analyzed,
+and elapsed time; raw SQL, credentials, and connection details never enter the
+stream. `no_data` distinguishes unknown entities, known entities/filters with
+no evidence, and unsupported questions. Retryable query/agent failures use the
+typed `error` event and always terminate the client processing state.
 
 Hybrid orchestration: **scripted chapter sequence** for "what should we
 prioritize?" (demo reliability); **LLM + tools** via `chat.agent()` for
@@ -100,10 +107,16 @@ literal query output from `types/agent-tools.ts`.
 | Competitors | — for the standalone matrix | Replicated static competitor reference |
 | Evidence | Mentions, source quotes, requesting-account rollups | Theme/account names |
 | Impact | Mention-derived expansion candidates | Mutable deals and account names |
+| Signal comparison / source mix | Filtered theme/source aggregations by time window | Account segment/industry and theme labels |
 
 All analytical tools use typed, parameterized ClickHouse queries. Postgres is
 still used by operational generation/extraction and the denormalized-field sync
 task, but no agent query function imports the Postgres client.
+
+Semantic visual selection is tool-driven rather than guessed in the browser:
+rankings, evidence cards, trend lines, account snapshots, competitor matrices,
+impact waterfalls, comparison bars, source-mix bars, and explicit no-data
+states all arrive as discriminated `ChapterVisual` variants.
 
 ## Verified production numbers (2026-07-21)
 

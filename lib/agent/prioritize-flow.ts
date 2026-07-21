@@ -66,7 +66,10 @@ export async function* runAgentFlow(body: ChatRequest): AsyncGenerator<StreamEve
 
 async function* runPrioritizeFlow(messageId: string): AsyncGenerator<StreamEvent> {
   const rankLabel = 'Querying ClickHouse: rank opportunities';
-  yield { type: 'status', status: { id: 'st_rank', label: rankLabel, state: 'running' } };
+  yield {
+    type: 'status',
+    status: { id: 'st_rank', label: rankLabel, state: 'running', source: 'clickhouse', phase: 'querying' },
+  };
   const rankStarted = Date.now();
   const ranked = await listOpportunitiesRanked({ time_window_days: WINDOW });
   yield {
@@ -76,6 +79,8 @@ async function* runPrioritizeFlow(messageId: string): AsyncGenerator<StreamEvent
       label: rankLabel,
       detail: `${withCommas(ranked.total_mentions_analyzed)} mentions · ${Date.now() - rankStarted}ms`,
       state: 'done',
+      source: 'clickhouse',
+      phase: 'querying',
     },
   };
 
@@ -94,7 +99,10 @@ async function* runPrioritizeFlow(messageId: string): AsyncGenerator<StreamEvent
   yield { type: 'chapter_actions', chapter_id: rankingId, actions: rankingActions };
 
   const impactLabel = 'Querying ClickHouse: usage-based impact';
-  yield { type: 'status', status: { id: 'st_impact', label: impactLabel, state: 'running' } };
+  yield {
+    type: 'status',
+    status: { id: 'st_impact', label: impactLabel, state: 'running', source: 'clickhouse', phase: 'querying' },
+  };
   const impactStarted = Date.now();
   const impact = await getImpactProjection({ theme_id: 'usage_based_billing' });
   yield {
@@ -104,6 +112,8 @@ async function* runPrioritizeFlow(messageId: string): AsyncGenerator<StreamEvent
       label: impactLabel,
       detail: `${impact.breakdown.length} account inputs · ${Date.now() - impactStarted}ms`,
       state: 'done',
+      source: 'clickhouse',
+      phase: 'querying',
     },
   };
 

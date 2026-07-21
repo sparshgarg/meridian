@@ -1,6 +1,7 @@
 import type {
   GetCompetitivePositionOutput,
   GetAccountSignalsOutput,
+  CompareSignalsOutput,
   GetImpactProjectionOutput,
   GetThemeEvidenceOutput,
   ListOpportunitiesOutput,
@@ -73,6 +74,13 @@ export interface TrendSeries {
   points: { date: string; mentions: number }[]; // ISO week-start dates
 }
 
+export interface NoDataOutcome {
+  reason: 'known_no_evidence' | 'unknown_entity' | 'unsupported';
+  title: string;
+  message: string;
+  suggestions: string[];
+}
+
 // Discriminated union — one visual per chapter. `data` shapes reuse the tool
 // output types in agent-tools.ts so the agent can pass tool results through.
 export type ChapterVisual =
@@ -84,7 +92,10 @@ export type ChapterVisual =
   | { type: 'impact_waterfall'; data: GetImpactProjectionOutput }
   | { type: 'impact_breakdown'; data: GetImpactProjectionOutput }
   | { type: 'account_snapshot'; data: GetAccountSignalsOutput }
-  | { type: 'trend_lines'; data: { series: TrendSeries[] } };
+  | { type: 'trend_lines'; data: { series: TrendSeries[] } }
+  | { type: 'comparison_bars'; data: CompareSignalsOutput }
+  | { type: 'source_mix'; data: CompareSignalsOutput }
+  | { type: 'no_data'; data: NoDataOutcome };
 
 export type VisualType = ChapterVisual['type'];
 
@@ -104,7 +115,9 @@ export interface StatusUpdate {
   id: string;
   label: string; // e.g. "Querying ClickHouse: mentions, last 90 days"
   detail?: string; // e.g. "4,812 rows scanned in 38ms"
-  state: 'running' | 'done';
+  state: 'running' | 'done' | 'error';
+  source?: 'trigger' | 'clickhouse' | 'agent';
+  phase?: 'understanding' | 'querying' | 'analyzing' | 'complete';
 }
 
 export type StreamEvent =
@@ -115,8 +128,9 @@ export type StreamEvent =
   | { type: 'chapter_visual'; chapter_id: string; visual: ChapterVisual }
   | { type: 'chapter_callout'; chapter_id: string; callout: Callout }
   | { type: 'chapter_actions'; chapter_id: string; actions: VisualAction[] }
+  | { type: 'no_data'; outcome: NoDataOutcome }
   | { type: 'message_end'; message_id: string; headline: string }
-  | { type: 'error'; message: string };
+  | { type: 'error'; message: string; code?: 'timeout' | 'network' | 'agent' | 'query'; retryable?: boolean };
 
 // Request body for POST /api/chat
 export interface ChatRequest {

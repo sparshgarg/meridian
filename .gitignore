@@ -24,6 +24,10 @@ npm-debug.log*
 # typescript
 *.tsbuildinfo
 
+# browser test artifacts
+/test-results/
+/playwright-report/
+
 # trigger.dev
 .trigger
 .vercel

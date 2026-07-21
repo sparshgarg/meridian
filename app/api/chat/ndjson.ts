@@ -14,8 +14,13 @@ export const ndjsonResponse = (events: AsyncIterable<StreamEvent>): Response => 
           controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
         }
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'stream failed';
-        controller.enqueue(encoder.encode(`${JSON.stringify({ type: 'error', message })}\n`));
+        console.error('[ndjsonResponse] stream failed:', err);
+        controller.enqueue(encoder.encode(`${JSON.stringify({
+          type: 'error',
+          code: 'agent',
+          retryable: true,
+          message: 'The analysis stream failed. Please retry.',
+        })}\n`));
       } finally {
         controller.close();
       }

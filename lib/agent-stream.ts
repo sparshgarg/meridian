@@ -17,6 +17,20 @@ import { chapterEvents } from '@/trigger/streams';
 export async function* createAgentStream(body: ChatRequest): AsyncGenerator<StreamEvent> {
   const lastUser = [...body.messages].reverse().find((message) => message.role === 'user');
   const scripted = Boolean(body.action) || isPrioritizePrompt(lastUser?.content ?? '');
+  const gatewayMessageId = `gateway_${Date.now().toString(36)}`;
+
+  yield { type: 'message_start', message_id: gatewayMessageId };
+  yield {
+    type: 'status',
+    status: {
+      id: `${gatewayMessageId}_understand`,
+      label: 'Understanding your question',
+      detail: scripted ? 'Selecting a verified analysis flow' : 'Preparing the Trigger.dev agent',
+      state: 'done',
+      source: 'agent',
+      phase: 'understanding',
+    },
+  };
 
   if (!process.env.TRIGGER_SECRET_KEY) {
     if (scripted) {
@@ -35,7 +49,29 @@ export async function* createAgentStream(body: ChatRequest): AsyncGenerator<Stre
       yield* runGeneralAgent(body);
       return;
     }
+    const triggerStatusId = `${gatewayMessageId}_trigger`;
+    yield {
+      type: 'status',
+      status: {
+        id: triggerStatusId,
+        label: 'Invoking Trigger.dev analysis',
+        state: 'running',
+        source: 'trigger',
+        phase: 'understanding',
+      },
+    };
     const handle = await tasks.trigger('stream-meridian-answer', body);
+    yield {
+      type: 'status',
+      status: {
+        id: triggerStatusId,
+        label: 'Trigger.dev analysis started',
+        detail: `Run ${handle.id.slice(0, 12)}`,
+        state: 'done',
+        source: 'trigger',
+        phase: 'understanding',
+      },
+    };
     const stream = await chapterEvents.read(handle.id, { timeoutInSeconds: 180 });
     for await (const event of stream) {
       yield event;
@@ -50,13 +86,26 @@ export async function* createAgentStream(body: ChatRequest): AsyncGenerator<Stre
     } else {
       yield {
         type: 'error',
-        message: err instanceof Error ? err.message : 'The data-chat agent failed.',
+        code: 'agent',
+        retryable: true,
+        message: 'The Trigger.dev data-chat run failed. Please retry.',
       };
     }
   }
 }
 
 async function* runGeneralAgent(body: ChatRequest): AsyncGenerator<StreamEvent> {
+  const statusId = `trigger_${Date.now().toString(36)}`;
+  yield {
+    type: 'status',
+    status: {
+      id: statusId,
+      label: 'Invoking Trigger.dev chat.agent()',
+      state: 'running',
+      source: 'trigger',
+      phase: 'understanding',
+    },
+  };
   const agent = new AgentChat({
     agent: 'meridian-chat',
     id: `${body.conversation_id}-${Date.now().toString(36)}`,
@@ -70,11 +119,34 @@ async function* runGeneralAgent(body: ChatRequest): AsyncGenerator<StreamEvent> 
     const response = await agent.sendMessage(
       `Answer the latest USER request using Meridian's real data tools.\n\n${history}`,
     );
+    yield {
+      type: 'status',
+      status: {
+        id: statusId,
+        label: 'Trigger.dev chat.agent() connected',
+        detail: 'Live tool stream',
+        state: 'done',
+        source: 'trigger',
+        phase: 'understanding',
+      },
+    };
+    let terminal = false;
     for await (const chunk of response) {
       if (chunk.type !== 'data-chapter-event') continue;
       const event = chunk.data as StreamEvent;
       yield event;
-      if (event.type === 'message_end' || event.type === 'error') return;
+      if (event.type === 'message_end' || event.type === 'error') {
+        terminal = true;
+        break;
+      }
+    }
+    if (!terminal) {
+      yield {
+        type: 'error',
+        code: 'agent',
+        retryable: true,
+        message: 'The Trigger.dev agent stream ended before completing the answer.',
+      };
     }
   } finally {
     await agent.close();

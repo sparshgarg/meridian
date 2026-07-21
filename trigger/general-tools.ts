@@ -7,8 +7,15 @@ import { getImpactProjection } from '@/lib/queries/impact-projection';
 import { listOpportunitiesRanked } from '@/lib/queries/opportunities-ranked';
 import { getThemeTrends } from '@/lib/queries/signal-summary';
 import { getThemeEvidence } from '@/lib/queries/theme-evidence';
+import { compareSignals } from '@/lib/queries/signal-comparison';
 import { toTrendLines } from '@/lib/queries/transforms';
-import type { ChapterIcon, ChapterVisual, StreamEvent } from '@/types/chapter';
+import type {
+  ChapterIcon,
+  ChapterVisual,
+  NoDataOutcome,
+  StreamEvent,
+  VisualAction,
+} from '@/types/chapter';
 import type { ThemeId } from '@/types/theme';
 import { chapterEvents } from './streams';
 
@@ -28,20 +35,101 @@ const runVisualTool = async <T>(
   detail: (data: T, elapsed: number) => string,
 ): Promise<T> => {
   const statusId = `${messageId}_${key}`;
-  await appendGeneralEvent({ type: 'status', status: { id: statusId, label, state: 'running' } });
-  const started = Date.now();
-  const data = await query();
   await appendGeneralEvent({
     type: 'status',
-    status: { id: statusId, label, detail: detail(data, Date.now() - started), state: 'done' },
+    status: { id: statusId, label, state: 'running', source: 'clickhouse', phase: 'querying' },
+  });
+  const started = Date.now();
+  let data: T;
+  try {
+    data = await query();
+  } catch (error) {
+    await appendGeneralEvent({
+      type: 'status',
+      status: {
+        id: statusId,
+        label,
+        detail: 'Query failed',
+        state: 'error',
+        source: 'clickhouse',
+        phase: 'querying',
+      },
+    });
+    throw error;
+  }
+  await appendGeneralEvent({
+    type: 'status',
+    status: {
+      id: statusId,
+      label,
+      detail: detail(data, Date.now() - started),
+      state: 'done',
+      source: 'clickhouse',
+      phase: 'querying',
+    },
+  });
+  const assembleId = `${messageId}_${key}_assemble`;
+  await appendGeneralEvent({
+    type: 'status',
+    status: {
+      id: assembleId,
+      label: 'Assembling the best visual',
+      state: 'running',
+      source: 'agent',
+      phase: 'analyzing',
+    },
   });
   const chapterId = `${messageId}_${key}_chapter`;
   await appendGeneralEvent({ type: 'chapter_start', chapter_id: chapterId, title, icon });
   await appendGeneralEvent({ type: 'chapter_visual', chapter_id: chapterId, visual: visual(data) });
+  await appendGeneralEvent({
+    type: 'status',
+    status: {
+      id: assembleId,
+      label: 'Assembling the best visual',
+      detail: 'Ready',
+      state: 'done',
+      source: 'agent',
+      phase: 'analyzing',
+    },
+  });
   return data;
 };
 
-export const createGeneralTools = (messageId: string) => ({
+const recordNoData = async (
+  emitted: Set<string>,
+  outcome: NoDataOutcome,
+): Promise<boolean> => {
+  if (emitted.size > 0) return false;
+  emitted.add(outcome.reason);
+  await appendGeneralEvent({ type: 'no_data', outcome });
+  return true;
+};
+
+const emitNoData = async (
+  messageId: string,
+  key: string,
+  outcome: NoDataOutcome,
+  emitted: Set<string>,
+): Promise<void> => {
+  if (!await recordNoData(emitted, outcome)) return;
+  const chapterId = `${messageId}_${key}_chapter`;
+  await appendGeneralEvent({
+    type: 'chapter_start',
+    chapter_id: chapterId,
+    title: outcome.title,
+    icon: 'summary',
+  });
+  await appendGeneralEvent({
+    type: 'chapter_visual',
+    chapter_id: chapterId,
+    visual: { type: 'no_data', data: outcome },
+  });
+};
+
+export const createGeneralTools = (messageId: string) => {
+  const emittedNoData = new Set<string>();
+  return ({
   find_accounts: tool({
     description:
       'Resolve an account or customer name from the ClickHouse CDC replica before requesting account signals.',
@@ -49,7 +137,17 @@ export const createGeneralTools = (messageId: string) => ({
     execute: async ({ query, limit }) => {
       const label = `Resolving account: ${query}`;
       const statusId = `${messageId}_account_search`;
-      await appendGeneralEvent({ type: 'status', status: { id: statusId, label, state: 'running' } });
+      await appendGeneralEvent({
+        type: 'status',
+        status: {
+          id: statusId,
+          label: 'Querying ClickHouse: accounts (CDC)',
+          detail: `Searching for ${query}`,
+          state: 'running',
+          source: 'clickhouse',
+          phase: 'querying',
+        },
+      });
       const started = Date.now();
       const result = await findAccounts({ query, limit });
       await appendGeneralEvent({
@@ -59,8 +157,18 @@ export const createGeneralTools = (messageId: string) => ({
           label,
           detail: `${result.matches.length} matching accounts · ${Date.now() - started}ms`,
           state: 'done',
+          source: 'clickhouse',
+          phase: 'querying',
         },
       });
+      if (result.matches.length === 0) {
+        await emitNoData(messageId, 'unknown_account', {
+          reason: 'unknown_entity',
+          title: 'Account not found',
+          message: `I couldn’t find “${query}” in Meridian’s replicated account directory.`,
+          suggestions: ['What does Figma want?', 'Which enterprise themes are strongest?'],
+        }, emittedNoData);
+      }
       return result;
     },
   }),
@@ -78,10 +186,29 @@ export const createGeneralTools = (messageId: string) => ({
         () => getAccountSignals({ account_id, evidence_limit }),
         (result) => {
           if (!result) throw new Error('Resolved account no longer exists');
+          if (result.total_mentions === 0) {
+            return {
+              type: 'no_data',
+              data: {
+                reason: 'known_no_evidence',
+                title: 'Account found, but no evidence',
+                message: `I found ${result.account.account_name}, but there are no matching tickets, interviews, or deal signals in ClickHouse.`,
+                suggestions: ['What does Figma want?', 'Which enterprise themes are strongest?'],
+              },
+            };
+          }
           return { type: 'account_snapshot', data: result };
         },
         (result, elapsed) => `${result?.total_mentions ?? 0} signals · ${elapsed}ms`,
       );
+      if (data?.total_mentions === 0) {
+        await recordNoData(emittedNoData, {
+            reason: 'known_no_evidence',
+            title: 'Account found, but no evidence',
+            message: `I found ${data.account.account_name}, but there are no matching tickets, interviews, or deal signals in ClickHouse.`,
+            suggestions: ['What does Figma want?', 'Which enterprise themes are strongest?'],
+        });
+      }
       return data;
     },
   }),
@@ -160,4 +287,113 @@ export const createGeneralTools = (messageId: string) => ({
         (data, elapsed) => `${data.breakdown.length} account inputs · ${elapsed}ms`,
       ),
   }),
-});
+  compare_signals: tool({
+    description:
+      'Compare themes or inspect source mix with optional segment, industry, and time-window filters. Use comparison_bars for theme/value comparisons and source_mix when the question asks which source drives demand.',
+    inputSchema: z.object({
+      theme_ids: z.array(z.string()).max(8).optional(),
+      segment: z.enum(['enterprise', 'mid_market', 'smb', 'all']).optional(),
+      industry: z.string().min(1).max(80).optional(),
+      time_window_days: z.number().int().min(7).max(365).optional(),
+      visual_kind: z.enum(['comparison_bars', 'source_mix']),
+    }),
+    execute: async ({ theme_ids, segment, industry, time_window_days, visual_kind }) => {
+      const data = await runVisualTool(
+        messageId,
+        `compare_${visual_kind}`,
+        'Querying ClickHouse: mentions + accounts (CDC) + themes (CDC)',
+        visual_kind === 'source_mix' ? 'What is driving demand' : 'Signal comparison',
+        visual_kind === 'source_mix' ? 'summary' : 'ranking',
+        () => compareSignals({
+          theme_ids: theme_ids as ThemeId[] | undefined,
+          segment,
+          industry,
+          time_window_days,
+        }),
+        (result) => {
+          if (result.rows.length > 0) return { type: visual_kind, data: result };
+          const unknownIndustry = Boolean(industry) && result.matched_accounts === 0;
+          return {
+            type: 'no_data',
+            data: {
+              reason: unknownIndustry ? 'unknown_entity' : 'known_no_evidence',
+              title: unknownIndustry ? 'No matching customer segment' : 'No matching evidence',
+              message: unknownIndustry
+                ? `I couldn’t find accounts matching “${industry}” in Meridian’s account data.`
+                : 'I couldn’t find evidence for that filter in Meridian’s tickets, interviews, deals, or competitor data.',
+              suggestions: ['Compare usage-based billing with dunning for enterprise accounts', 'Which themes grew in the last 90 days?'],
+            },
+          };
+        },
+        (result, elapsed) => `${result.total_mentions} rows analyzed · ${elapsed}ms`,
+      );
+      if (data.rows.length > 0) {
+        const actions: VisualAction[] = [];
+        if (data.rows.some((row) => row.theme_id === 'usage_based_billing')) {
+          actions.push({
+            id: 'why_usage',
+            label: 'Show usage evidence',
+            aria_label: 'Query evidence for usage-based billing',
+            theme_id: 'usage_based_billing',
+          });
+        }
+        if (data.rows.some((row) => row.theme_id === 'dunning_customization')) {
+          actions.push({
+            id: 'why_not_dunning',
+            label: 'Inspect dunning value',
+            aria_label: 'Query why dunning should not be prioritized',
+            theme_id: 'dunning_customization',
+          });
+        }
+        if (data.rows.some((row) => row.theme_id === 'multi_entity_invoicing')) {
+          actions.push({
+            id: 'explore_multi_entity',
+            label: 'Show multi-entity evidence',
+            aria_label: 'Query multi-entity invoicing evidence',
+            theme_id: 'multi_entity_invoicing',
+          });
+        }
+        if (actions.length > 0) {
+          await appendGeneralEvent({
+            type: 'chapter_actions',
+            chapter_id: `${messageId}_compare_${visual_kind}_chapter`,
+            actions,
+          });
+        }
+      }
+      if (data.rows.length === 0) {
+        const unknownIndustry = Boolean(industry) && data.matched_accounts === 0;
+        await recordNoData(emittedNoData, {
+          reason: unknownIndustry ? 'unknown_entity' : 'known_no_evidence',
+          title: unknownIndustry ? 'No matching customer segment' : 'No matching evidence',
+          message: unknownIndustry
+            ? `I couldn’t find accounts matching “${industry}” in Meridian’s account data.`
+            : 'I couldn’t find evidence for that filter in Meridian’s tickets, interviews, deals, or competitor data.',
+          suggestions: ['Compare usage-based billing with dunning for enterprise accounts', 'Which themes grew in the last 90 days?'],
+        });
+      }
+      return data;
+    },
+  }),
+  report_no_data: tool({
+    description:
+      'Use when a request is outside Meridian Billing data, or when the available tools cannot answer it. Never redirect an unsupported request to prioritization.',
+    inputSchema: z.object({
+      reason: z.enum(['known_no_evidence', 'unknown_entity', 'unsupported']),
+      subject: z.string().max(120),
+    }),
+    execute: async ({ reason, subject }) => {
+      const outcome: NoDataOutcome = {
+        reason,
+        title: reason === 'unsupported' ? 'Outside Meridian’s data' : 'No matching evidence',
+        message: reason === 'unsupported'
+          ? `I can’t answer “${subject}” from Meridian’s product data. I cover tickets, interviews, deals, accounts, themes, and competitors.`
+          : `I couldn’t find evidence for “${subject}” in Meridian’s tickets, interviews, deals, or competitor data.`,
+        suggestions: ['What does Figma want?', 'Which themes are growing fastest?', 'Compare usage-based billing with dunning'],
+      };
+      await emitNoData(messageId, 'no_data', outcome, emittedNoData);
+      return outcome;
+    },
+  }),
+  });
+};

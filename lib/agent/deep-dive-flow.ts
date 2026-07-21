@@ -23,7 +23,7 @@ const findTheme = (rows: OpportunityRow[], id: string): OpportunityRow | undefin
 
 const doneStatus = (id: string, label: string, detail: string): StreamEvent => ({
   type: 'status',
-  status: { id, label, detail, state: 'done' },
+  status: { id, label, detail, state: 'done', source: 'clickhouse', phase: 'querying' },
 });
 
 export async function* runDeepDiveFlow(
@@ -39,7 +39,7 @@ export async function* runDeepDiveFlow(
 
 async function* runUsageEvidence(messageId: string): AsyncGenerator<StreamEvent> {
   const label = 'Querying ClickHouse: usage-based evidence';
-  yield { type: 'status', status: { id: 'st_usage', label, state: 'running' } };
+  yield { type: 'status', status: { id: 'st_usage', label, state: 'running', source: 'clickhouse', phase: 'querying' } };
   const started = Date.now();
   const [evidence, ranked] = await Promise.all([
     getThemeEvidence({ theme_id: 'usage_based_billing', limit: 8 }),
@@ -64,7 +64,7 @@ async function* runUsageEvidence(messageId: string): AsyncGenerator<StreamEvent>
 
 async function* runDunning(messageId: string): AsyncGenerator<StreamEvent> {
   const label = 'Querying ClickHouse: dunning volume versus value';
-  yield { type: 'status', status: { id: 'st_dunning', label, state: 'running' } };
+  yield { type: 'status', status: { id: 'st_dunning', label, state: 'running', source: 'clickhouse', phase: 'querying' } };
   const started = Date.now();
   const [ranked, volume] = await Promise.all([
     listOpportunitiesRanked({ time_window_days: WINDOW }),
@@ -97,7 +97,7 @@ async function* runDunning(messageId: string): AsyncGenerator<StreamEvent> {
 
 async function* runMultiEntity(messageId: string): AsyncGenerator<StreamEvent> {
   const label = 'Querying ClickHouse: multi-entity evidence';
-  yield { type: 'status', status: { id: 'st_multi', label, state: 'running' } };
+  yield { type: 'status', status: { id: 'st_multi', label, state: 'running', source: 'clickhouse', phase: 'querying' } };
   const started = Date.now();
   const [evidence, ranked] = await Promise.all([
     getThemeEvidence({ theme_id: 'multi_entity_invoicing', limit: 8 }),
@@ -121,7 +121,7 @@ async function* runMultiEntity(messageId: string): AsyncGenerator<StreamEvent> {
 
 async function* runCompetitive(messageId: string): AsyncGenerator<StreamEvent> {
   const label = 'Cross-checking ClickHouse signal with competitor data';
-  yield { type: 'status', status: { id: 'st_comp', label, state: 'running' } };
+  yield { type: 'status', status: { id: 'st_comp', label, state: 'running', source: 'clickhouse', phase: 'querying' } };
   const started = Date.now();
   const [usage, multi, ranked] = await Promise.all([
     getCompetitivePosition({ theme_id: 'usage_based_billing' }),
@@ -152,7 +152,7 @@ async function* runCompetitive(messageId: string): AsyncGenerator<StreamEvent> {
 
 async function* runImpactDetails(messageId: string): AsyncGenerator<StreamEvent> {
   const label = 'Querying ClickHouse: impact assumptions';
-  yield { type: 'status', status: { id: 'st_impact', label, state: 'running' } };
+  yield { type: 'status', status: { id: 'st_impact', label, state: 'running', source: 'clickhouse', phase: 'querying' } };
   const started = Date.now();
   const impact = await getImpactProjection({ theme_id: 'usage_based_billing' });
   yield doneStatus(

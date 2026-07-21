@@ -13,6 +13,7 @@ export default function ChatPage(): JSX.Element {
     canGoBack,
     focusRestoreKey,
     sendMessage,
+    retryTurn,
     sendAction,
     setActiveTurn,
     goBack,
@@ -48,6 +49,7 @@ export default function ChatPage(): JSX.Element {
             if (activeTurnId) setScrollPosition(activeTurnId, scrollTop);
           }}
           focusRestoreKey={focusRestoreKey}
+          onRetry={(turnId) => void retryTurn(turnId)}
         />
       </section>
     </main>

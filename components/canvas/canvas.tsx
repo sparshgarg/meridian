@@ -2,11 +2,12 @@
 
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Sparkle } from 'lucide-react';
+import { ArrowLeft, RotateCcw, Sparkle } from 'lucide-react';
 import type { AssistantTurn } from '@/components/chat/use-chat';
 import type { VisualAction } from '@/types/chapter';
 import { ChapterCard } from './chapter-card';
 import { EmptyState } from './empty-state';
+import { ProcessingState } from './processing-state';
 
 interface CanvasProps {
   turn: AssistantTurn | null;
@@ -18,6 +19,7 @@ interface CanvasProps {
   scrollTop: number;
   onScrollPosition: (scrollTop: number) => void;
   focusRestoreKey: number;
+  onRetry: (turnId: string) => void;
 }
 
 // The big surface. Renders the active assistant turn as a scrolling stack of
@@ -32,6 +34,7 @@ export const Canvas = ({
   scrollTop,
   onScrollPosition,
   focusRestoreKey,
+  onRetry,
 }: CanvasProps): JSX.Element => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const backRef = useRef<HTMLButtonElement>(null);
@@ -101,6 +104,10 @@ export const Canvas = ({
           </motion.div>
         )}
 
+        {turn.state === 'streaming' && turn.chapters.length === 0 && (
+          <ProcessingState statuses={turn.statuses} />
+        )}
+
         {turn.chapters.map((chapter, i) => (
           <ChapterCard
             key={chapter.id}
@@ -113,8 +120,19 @@ export const Canvas = ({
         ))}
 
         {turn.state === 'error' && (
-          <div className="rounded-2xl border border-coral/40 bg-coral-soft p-4 text-sm text-ink">
-            Something broke mid-stream: {turn.error}. Try asking again.
+          <div className="rounded-2xl border border-coral/40 bg-coral-soft p-4 text-sm text-ink" role="alert">
+            <p className="font-semibold">The analysis did not complete.</p>
+            <p className="mt-1 text-ink-secondary">{turn.error}</p>
+            {turn.retryable && (
+              <button
+                type="button"
+                onClick={() => onRetry(turn.id)}
+                className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl bg-white px-3.5 py-2 font-semibold shadow-depth-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                Retry question
+              </button>
+            )}
           </div>
         )}
       </div>

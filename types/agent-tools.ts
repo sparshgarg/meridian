@@ -153,3 +153,42 @@ export interface GetAccountSignalsOutput {
   }[];
   total_mentions: number;
 }
+
+export type SignalSegment = 'enterprise' | 'mid_market' | 'smb' | 'all';
+
+export interface CompareSignalsInput {
+  theme_ids?: ThemeId[];
+  segment?: SignalSegment;
+  industry?: string;
+  time_window_days?: number;
+}
+
+export interface SignalComparisonRow {
+  theme_id: ThemeId;
+  theme_name: string;
+  mention_count: number;
+  unique_accounts: number;
+  requester_arr: number;
+  avg_severity: number;
+  source_counts: {
+    tickets: number;
+    transcripts: number;
+    deal_losses: number;
+  };
+}
+
+export interface CompareSignalsOutput {
+  rows: SignalComparisonRow[];
+  filters: {
+    theme_ids: ThemeId[];
+    segment: SignalSegment;
+    industry?: string;
+    time_window_days: number;
+  };
+  total_mentions: number;
+  matched_accounts: number;
+  provenance: {
+    source: 'ClickHouse';
+    tables: string[];
+  };
+}
