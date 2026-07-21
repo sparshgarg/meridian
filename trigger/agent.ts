@@ -4,7 +4,7 @@ import { streamText, stepCountIs } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import type { ChapterVisual, ChatRequest, StreamEvent } from '@/types/chapter';
 import { runAgentFlow } from '@/lib/agent/prioritize-flow';
-import { createGeneralTools } from './general-tools';
+import { appendGeneralEvent, createGeneralTools } from './general-tools';
 import { chapterEvents } from './streams';
 
 export const statusEvent = (
@@ -64,7 +64,7 @@ export const meridianChat = chat.agent({
   idleTimeoutInSeconds: 0,
   run: async ({ messages, signal }) => {
     const messageId = `msg_${Date.now().toString(36)}`;
-    await chapterEvents.append({ type: 'message_start', message_id: messageId });
+    await appendGeneralEvent({ type: 'message_start', message_id: messageId });
     const tools = createGeneralTools(messageId);
     chat.endRun();
     return streamText({
@@ -84,7 +84,7 @@ webhook_reliability, salesforce_sync, custom_invoice_pdf.`,
       abortSignal: signal,
       stopWhen: stepCountIs(8),
       onFinish: async ({ text }) => {
-        await chapterEvents.append({
+        await appendGeneralEvent({
           type: 'message_end',
           message_id: messageId,
           headline: headlineFromModel(text),

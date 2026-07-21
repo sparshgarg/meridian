@@ -57,15 +57,10 @@ export async function* createAgentStream(body: ChatRequest): AsyncGenerator<Stre
 }
 
 async function* runGeneralAgent(body: ChatRequest): AsyncGenerator<StreamEvent> {
-  let resolveRunId: (runId: string) => void = () => undefined;
-  const runIdPromise = new Promise<string>((resolve) => {
-    resolveRunId = resolve;
-  });
   const agent = new AgentChat({
     agent: 'meridian-chat',
     id: `${body.conversation_id}-${Date.now().toString(36)}`,
     streamTimeoutSeconds: 180,
-    onTriggered: ({ runId }) => resolveRunId(runId),
   });
   const history = body.messages
     .map((message) => `${message.role.toUpperCase()}: ${message.content}`)
@@ -75,14 +70,12 @@ async function* runGeneralAgent(body: ChatRequest): AsyncGenerator<StreamEvent> 
     const response = await agent.sendMessage(
       `Answer the latest USER request using Meridian's real data tools.\n\n${history}`,
     );
-    const runId = await runIdPromise;
-    const drainResponse = response.text();
-    const stream = await chapterEvents.read(runId, { timeoutInSeconds: 180 });
-    for await (const event of stream) {
+    for await (const chunk of response) {
+      if (chunk.type !== 'data-chapter-event') continue;
+      const event = chunk.data as StreamEvent;
       yield event;
-      if (event.type === 'message_end' || event.type === 'error') break;
+      if (event.type === 'message_end' || event.type === 'error') return;
     }
-    await drainResponse;
   } finally {
     await agent.close();
   }

@@ -1,4 +1,5 @@
 import { tool } from 'ai';
+import { chat } from '@trigger.dev/sdk/ai';
 import { z } from 'zod';
 import { findAccounts, getAccountSignals } from '@/lib/queries/account-signals';
 import { getCompetitivePosition } from '@/lib/queries/competitive-position';
@@ -11,7 +12,10 @@ import type { ChapterIcon, ChapterVisual, StreamEvent } from '@/types/chapter';
 import type { ThemeId } from '@/types/theme';
 import { chapterEvents } from './streams';
 
-const append = (event: StreamEvent): Promise<void> => chapterEvents.append(event);
+export const appendGeneralEvent = async (event: StreamEvent): Promise<void> => {
+  await chapterEvents.append(event);
+  chat.response.write({ type: 'data-chapter-event', data: event });
+};
 
 const runVisualTool = async <T>(
   messageId: string,
@@ -24,16 +28,16 @@ const runVisualTool = async <T>(
   detail: (data: T, elapsed: number) => string,
 ): Promise<T> => {
   const statusId = `${messageId}_${key}`;
-  await append({ type: 'status', status: { id: statusId, label, state: 'running' } });
+  await appendGeneralEvent({ type: 'status', status: { id: statusId, label, state: 'running' } });
   const started = Date.now();
   const data = await query();
-  await append({
+  await appendGeneralEvent({
     type: 'status',
     status: { id: statusId, label, detail: detail(data, Date.now() - started), state: 'done' },
   });
   const chapterId = `${messageId}_${key}_chapter`;
-  await append({ type: 'chapter_start', chapter_id: chapterId, title, icon });
-  await append({ type: 'chapter_visual', chapter_id: chapterId, visual: visual(data) });
+  await appendGeneralEvent({ type: 'chapter_start', chapter_id: chapterId, title, icon });
+  await appendGeneralEvent({ type: 'chapter_visual', chapter_id: chapterId, visual: visual(data) });
   return data;
 };
 
@@ -45,10 +49,10 @@ export const createGeneralTools = (messageId: string) => ({
     execute: async ({ query, limit }) => {
       const label = `Resolving account: ${query}`;
       const statusId = `${messageId}_account_search`;
-      await append({ type: 'status', status: { id: statusId, label, state: 'running' } });
+      await appendGeneralEvent({ type: 'status', status: { id: statusId, label, state: 'running' } });
       const started = Date.now();
       const result = await findAccounts({ query, limit });
-      await append({
+      await appendGeneralEvent({
         type: 'status',
         status: {
           id: statusId,
