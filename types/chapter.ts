@@ -33,6 +33,20 @@ export interface Callout {
   theme_id?: ThemeId;
 }
 
+export type DeepDiveId =
+  | 'why_usage'
+  | 'why_not_dunning'
+  | 'explore_multi_entity'
+  | 'competitor_insight'
+  | 'impact_details';
+
+export interface VisualAction {
+  id: DeepDiveId;
+  label: string;
+  aria_label: string;
+  theme_id?: ThemeId;
+}
+
 export interface StatTile {
   label: string;
   value: string; // pre-formatted by the agent, e.g. "$4.2M" / "312"
@@ -67,6 +81,7 @@ export type ChapterVisual =
   | { type: 'evidence_cards'; data: GetThemeEvidenceOutput }
   | { type: 'competitor_matrix'; data: GetCompetitivePositionOutput }
   | { type: 'impact_waterfall'; data: GetImpactProjectionOutput }
+  | { type: 'impact_breakdown'; data: GetImpactProjectionOutput }
   | { type: 'trend_lines'; data: { series: TrendSeries[] } };
 
 export type VisualType = ChapterVisual['type'];
@@ -78,6 +93,7 @@ export interface Chapter {
   intro: string; // 1–3 sentences, streamed via chapter_intro_delta
   visual?: ChapterVisual;
   callouts: Callout[];
+  actions: VisualAction[];
 }
 
 // ── Stream protocol (NDJSON: one JSON-encoded StreamEvent per line) ──────────
@@ -96,6 +112,7 @@ export type StreamEvent =
   | { type: 'chapter_intro_delta'; chapter_id: string; delta: string }
   | { type: 'chapter_visual'; chapter_id: string; visual: ChapterVisual }
   | { type: 'chapter_callout'; chapter_id: string; callout: Callout }
+  | { type: 'chapter_actions'; chapter_id: string; actions: VisualAction[] }
   | { type: 'message_end'; message_id: string; headline: string }
   | { type: 'error'; message: string };
 
@@ -103,4 +120,9 @@ export type StreamEvent =
 export interface ChatRequest {
   conversation_id: string;
   messages: { role: 'user' | 'assistant'; content: string }[];
+  action?: {
+    type: 'deep_dive';
+    id: DeepDiveId;
+    theme_id?: ThemeId;
+  };
 }

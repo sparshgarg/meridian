@@ -26,6 +26,8 @@ export const VisualRenderer = ({ visual }: { visual: ChapterVisual }): JSX.Eleme
       return <CompetitorMatrix data={visual.data} />;
     case 'impact_waterfall':
       return <ImpactWaterfall data={visual.data} />;
+    case 'impact_breakdown':
+      return <ImpactWaterfall data={visual.data} showDetails />;
     case 'trend_lines':
       return <TrendLines series={visual.data.series} />;
   }

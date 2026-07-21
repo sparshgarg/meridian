@@ -10,8 +10,7 @@ const INTRO_CHUNK_MS = 24;
 const BETWEEN_STEPS_MS = 350;
 
 export async function* mockEventStream(body: ChatRequest): AsyncGenerator<StreamEvent> {
-  const lastUser = [...body.messages].reverse().find((m) => m.role === 'user');
-  const scenario = pickScenario(lastUser?.content ?? '');
+  const scenario = pickScenario(body);
   const messageId = `msg_${Date.now().toString(36)}`;
 
   yield { type: 'message_start', message_id: messageId };
@@ -30,7 +29,7 @@ export async function* mockEventStream(body: ChatRequest): AsyncGenerator<Stream
     yield { type: 'chapter_start', chapter_id: chapterId, title: step.title, icon: step.icon };
 
     // Stream the intro in word-sized deltas, like a live LLM.
-    const words = step.intro.split(' ');
+    const words = (step.intro ?? '').split(' ').filter(Boolean);
     for (let i = 0; i < words.length; i += 3) {
       yield {
         type: 'chapter_intro_delta',
@@ -47,6 +46,9 @@ export async function* mockEventStream(body: ChatRequest): AsyncGenerator<Stream
     for (const callout of step.callouts ?? []) {
       await sleep(300);
       yield { type: 'chapter_callout', chapter_id: chapterId, callout };
+    }
+    if (step.actions?.length) {
+      yield { type: 'chapter_actions', chapter_id: chapterId, actions: step.actions };
     }
     await sleep(BETWEEN_STEPS_MS);
   }

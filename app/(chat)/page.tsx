@@ -6,7 +6,7 @@ import { useChat } from '@/components/chat/use-chat';
 
 // The whole app is one full-screen workspace: chat rail + answer canvas.
 export default function ChatPage(): JSX.Element {
-  const { turns, isStreaming, activeTurnId, sendMessage, setActiveTurn } = useChat();
+  const { turns, isStreaming, activeTurnId, sendMessage, sendAction, setActiveTurn } = useChat();
 
   const activeTurn =
     turns.find((t) => t.role === 'assistant' && t.id === activeTurnId) ?? null;
@@ -24,7 +24,12 @@ export default function ChatPage(): JSX.Element {
         onSelectTurn={setActiveTurn}
       />
       <section className="min-w-0 flex-1 overflow-hidden rounded-3xl">
-        <Canvas turn={activeTurn?.role === 'assistant' ? activeTurn : null} prompt={prompt} />
+        <Canvas
+          turn={activeTurn?.role === 'assistant' ? activeTurn : null}
+          prompt={prompt}
+          actionsDisabled={activeTurn?.role === 'assistant' && activeTurn.state === 'streaming'}
+          onAction={(action) => void sendAction(action)}
+        />
       </section>
     </main>
   );

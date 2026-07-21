@@ -1,7 +1,7 @@
 # Meridian — Project Context & Handoff
 
 **ClickHouse & Trigger.dev Virtual Summer Hackathon 2026**
-**Team of 2 · Person A (Saurav, backend/data/agent) + Person B (frontend/streaming)**
+**Sole-developer project · Sparsh owns frontend, backend, data, agent, and deployment**
 **Repo:** github.com/sparshgarg/meridian
 **Deadline:** submissions close midnight AoE, July 23, 2026
 
@@ -41,6 +41,7 @@ The agent must correctly identify, from the seeded data:
 ### Agent layer
 - **Trigger.dev `chat.agent()`** — REQUIRED by the hackathon. The agent orchestration must use this primitive, not a raw Next.js route or bare Vercel AI SDK. Background jobs (ingestion, extraction, sync) also run as Trigger.dev tasks with `batchTrigger` for fan-out.
 - **Orchestration decision: HYBRID** — scripted chapter sequence for the main "what should we prioritize?" flow (for demo reliability), LLM-driven for follow-up questions. LLM reasoning goes into synthesis WITHIN each chapter (verdict text, callouts), not the sequencing between chapters.
+- **Progressive disclosure (2026-07-21):** the initial prioritization answer is only a compact ranking + impact chart and ends with `You should prioritize usage-based billing.` Volume trap, hidden gem evidence, competitor matrix, and impact assumptions are separate typed deep dives that issue fresh agent requests and database queries.
 
 ### Frontend + streaming (Person B, DONE; live seam wired)
 - Next.js 14 App Router + TypeScript strict + Tailwind + Recharts + framer-motion.
@@ -69,11 +70,14 @@ type StreamEvent =
   | { type: 'chapter_intro_delta'; chapter_id: string; delta: string }
   | { type: 'chapter_visual'; chapter_id: string; visual: ChapterVisual }
   | { type: 'chapter_callout'; chapter_id: string; callout: Callout }
+  | { type: 'chapter_actions'; chapter_id: string; actions: VisualAction[] }
   | { type: 'message_end'; message_id: string; headline: string }
   | { type: 'error'; message: string };
 ```
 
-**Per-chapter event order (must honor):** `chapter_start` → `chapter_intro_delta`* → `chapter_visual` → `chapter_callout`*. Bracketed by `message_start` / `message_end{headline}`, with `status` events interleaved per query.
+**Per-chapter event order (must honor):** `chapter_start` → `chapter_intro_delta`* → `chapter_visual` → (`chapter_callout` | `chapter_actions`)*. Bracketed by `message_start` / `message_end{headline}`, with `status` events interleaved per query.
+
+`ChatRequest` can include `action: { type: 'deep_dive'; id: DeepDiveId; theme_id? }`. Current IDs are `why_usage`, `why_not_dunning`, `explore_multi_entity`, `competitor_insight`, and `impact_details`. The client preserves conversation history and sends a new `POST /api/chat` for every click; actions are never client-only reveals.
 
 ### The 7 visuals (ChapterVisual discriminated union)
 Four are **pass-through** — their `data` is literally Person A's tool output from `types/agent-tools.ts`, no reshaping:
@@ -110,10 +114,19 @@ Three are **frontend-shaped** — transforms in `lib/queries/transforms.ts` (`to
 - A5 materials: MIT `LICENSE`, rewritten `README.md`, `SUBMISSION.md` with real counts
 - E2E: `scripts/e2e-live-stream.ts` — 85 events / 6 chapters / three wow moments (passed)
 
-### Frontend (Person B) — DONE
-- Full UI in mock mode; all 7 visuals; three wow moments in mock.
+### Frontend — DONE
+- Full UI in mock and live mode; progressive-disclosure actions render as accessible buttons attached to visual modules.
 - Live path ready: `route.ts` → `createAgentStream` when `NEXT_PUBLIC_AGENT_MODE=live` (defaults to `mock` if unset).
 - Transforms: `lib/queries/transforms.ts`.
+
+### Progressive-disclosure redesign ✅ VERIFIED (2026-07-21)
+- Initial prioritize flow: exactly **2 visual modules** (top-four opportunity landscape + compact impact waterfall), no generic intro prose, exact headline `You should prioritize usage-based billing.`
+- Initial response does **not** query/render dunning trap, multi-entity evidence, competitor matrix, or account-level impact assumptions.
+- Typed action contract added across `/types/chapter.ts`, live/mock streams, `use-chat`, canvas, and charts.
+- Each action creates a new request and focused one-chapter response. Live E2E verified all five actions with fresh ClickHouse status events.
+- Browser verified actual button clicks and payloads for `why_not_dunning` and `explore_multi_entity`; both produced new `POST /api/chat` requests with full conversation history and the expected typed `action.id`.
+- `impact_waterfall` now stays summary-only; `impact_breakdown` shows account-level assumptions only after its deep-dive request.
+- Verification passed: `npm run typecheck`, `npm run build`, and `npx tsx scripts/e2e-live-stream.ts`.
 
 ### Environment (DONE locally + Sparsh Vercel Production)
 - `.env.local` has ClickHouse, Postgres (ClickHouse-managed), multi-provider LLM keys, and `NEXT_PUBLIC_AGENT_MODE=live` locally.
@@ -214,7 +227,7 @@ Three are **frontend-shaped** — transforms in `lib/queries/transforms.ts` (`to
 - **Agent MUST use Trigger.dev `chat.agent()`** — required, disqualification otherwise. Both ClickHouse and Trigger.dev must be meaningfully used.
 - **All code written during July 17-23** — no pre-existing code. Data-artifact JSON (design) was allowed pre-window; generator code was written in-window.
 - **Gemini free tier: 15 RPM (Flash) / 30 RPM (Flash-Lite), 1,500 req/day** — lower generator concurrency, one full run/day.
-- **File ownership:** Person A owns `/lib` (except transforms.ts + agent-stream.ts which B stubbed), `/trigger`, `/scripts`, `/data`, all SQL. Person B owns `/app`, `/components`, transforms, NDJSON/route wiring. Shared (PR only): `/types`, CLAUDE.md, .env.example.
+- **Ownership:** this is now a sole-developer project; Sparsh is authorized to edit all repository areas. Old Person A/B boundaries in `CLAUDE.md` are historical and do not restrict current work.
 - **Extraction quality gate is non-negotiable** — 20-sample manual check before full extraction.
 - **themes.id is a TEXT slug** (e.g. 'usage_based_billing'), NOT a UUID — it's the join key across mentions/tools/seed. Everything else uses UUIDs.
 - **Demo video opens with live product** — handbook requirement.
@@ -243,17 +256,22 @@ Plus bonus category: best OLTP+OLAP integration (€1000).
 ### Primary demo path
 1. Open Production URL above (ignore teammate URL `meridian-mu-beryl` — superseded).
 2. Type: **"what should we prioritize next quarter?"** (or click that suggestion).
-3. **Must see:**
-   - Chapters stream onto the canvas (not a wall of text); ~6 chapters end with a headline banner.
+3. **Must see initially:**
+   - Exactly 2 concise visual modules: Q4 opportunity landscape + traceable impact.
+   - Headline banner: **“You should prioritize usage-based billing.”**
    - Status ticker shows real tool/ClickHouse activity (row counts near **~1.8k mentions**, not mock "4,812").
    - Opportunity ranking: **usage-based billing #1 `build_now`**, **multi-entity #2 `build_next`** (hidden gem).
-   - Volume trap chapter: dunning loud but **deprioritized**.
-   - Evidence/provenance cards with real quotes + source IDs (ticket/transcript/deal).
+   - Buttons: Why usage? / Why not dunning? / Explore multi-entity / Competitor insight / See impact assumptions.
+   - No volume trap, evidence cards, or competitor matrix until clicked.
+4. **Deep dives (each must create a new answer/request):**
+   - Why not dunning? → ClickHouse volume/value scatter.
+   - Explore multi-entity → ClickHouse-backed evidence/provenance cards.
+   - Competitor insight → ClickHouse signal cross-check + Postgres competitor reference.
+   - See impact assumptions → fresh ClickHouse/Postgres projection with account-level breakdown.
    - LATAM may appear as **`deprioritize`** (signal 23) — expected; webhook is the live `watch`.
-4. **Ignore (not bugs):** optional other suggested prompts for the main demo; minor UI/chart polish; ~1,802 mentions vs old ~5k target; ~97% extraction coverage (a few sources may lack mentions after schema/TTL skips).
-5. **On LIVE URL, these ARE bugs:** mock-era canned numbers (4,812 mentions / 120 accounts / 200 deals), empty canvas, stuck spinner, ranking that puts dunning #1 or multi-entity off the podium, error stream events.
-6. **Secondary (optional):** "Should we build what customers ask for the most?" (volume trap focus); "Where are competitors beating us?"; "Show me the evidence for usage-based billing." Refresh/reload should return to empty workspace cleanly.
-7. **Demo video** records this same Production URL, ≤5 min, landing the three wow moments.
+5. **Ignore (not bugs):** ~1,802 mentions vs old ~5k target; ~97% extraction coverage (a few sources may lack mentions after schema/TTL skips).
+6. **On LIVE URL, these ARE bugs:** mock-era canned numbers (4,812 mentions / 120 accounts / 200 deals), deep-dive buttons that only reveal preloaded data or do not issue a request, empty canvas, stuck spinner, ranking that puts dunning #1 or multi-entity off the podium, error stream events.
+7. **Demo video** records this same Production URL, ≤5 min, landing the wow moments through progressive-disclosure clicks.
 
 ## 10. WHAT'S LEFT (updated 2026-07-21 — Sparsh Vercel Production live)
 
@@ -285,8 +303,8 @@ Repo is already **public**. Do not change scoring code unless user asks.
 
 ## 11. OWNERSHIP & STATUS (updated 2026-07-21)
 
-- **Sparsh (repo / Trigger / Vercel / data):** Trigger Cloud deploy ✅; Vercel Production ✅ (`https://meridian-blush-iota.vercel.app`); Trigger dashboard env; local `.env.local`; demo video + hackathon form (or share with teammate).
-- **Teammate:** former Vercel URL `https://meridian-mu-beryl.vercel.app` is **superseded** — do not use for demo/submit.
+- **Sparsh is sole developer/owner:** repo, Trigger, Vercel, data, frontend, backend, demo video, and hackathon form.
+- Former teammate Vercel URL `https://meridian-mu-beryl.vercel.app` is **superseded** — do not use for demo/submit.
 
 **Keep CONTEXT.md updated after every verified milestone** (process rule going forward).
 

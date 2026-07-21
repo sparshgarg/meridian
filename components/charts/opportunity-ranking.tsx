@@ -25,8 +25,9 @@ const rampFor = (signal: number): string => {
 const SOURCES = ['tickets', 'transcripts', 'deal_losses'] as const;
 
 export const OpportunityRanking = ({ data }: { data: ListOpportunitiesOutput }): JSX.Element => {
+  const visibleRows = data.opportunities.slice(0, 4);
   const maxMentions = Math.max(
-    ...data.opportunities.map((o) => SOURCES.reduce((acc, s) => acc + o.mention_counts[s], 0)),
+    ...visibleRows.map((o) => SOURCES.reduce((acc, s) => acc + o.mention_counts[s], 0)),
   );
 
   return (
@@ -35,7 +36,7 @@ export const OpportunityRanking = ({ data }: { data: ListOpportunitiesOutput }):
       legend={SOURCES.map((s) => ({ label: sourceTypeLabel[s], color: sourceTypeColor[s] }))}
     >
       <div className="space-y-1.5">
-        {data.opportunities.map((row, i) => {
+        {visibleRows.map((row, i) => {
           const badge = recBadge[row.recommendation];
           const totalMentions = SOURCES.reduce((acc, s) => acc + row.mention_counts[s], 0);
           return (
@@ -103,6 +104,11 @@ export const OpportunityRanking = ({ data }: { data: ListOpportunitiesOutput }):
             </motion.div>
           );
         })}
+        {data.opportunities.length > visibleRows.length && (
+          <p className="px-2 pt-2 text-xs text-ink-muted">
+            {data.opportunities.length - visibleRows.length} lower-signal themes omitted
+          </p>
+        )}
       </div>
     </ChartFrame>
   );

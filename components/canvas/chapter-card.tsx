@@ -11,8 +11,9 @@ import {
   TrendingUp,
   Triangle,
   Zap,
+  ArrowRight,
 } from 'lucide-react';
-import type { Chapter, ChapterIcon } from '@/types/chapter';
+import type { Chapter, ChapterIcon, VisualAction } from '@/types/chapter';
 import { CalloutCard } from './callout-card';
 import { VisualRenderer } from './visual-renderer';
 
@@ -32,11 +33,19 @@ interface ChapterCardProps {
   chapter: Chapter;
   index: number;
   isStreaming: boolean;
+  actionsDisabled: boolean;
+  onAction: (action: VisualAction) => void;
 }
 
 // One "chapter" of an answer: numbered header, streamed intro, a visual, and
 // callouts — rendered as a floating card on the canvas.
-export const ChapterCard = ({ chapter, index, isStreaming }: ChapterCardProps): JSX.Element => {
+export const ChapterCard = ({
+  chapter,
+  index,
+  isStreaming,
+  actionsDisabled,
+  onAction,
+}: ChapterCardProps): JSX.Element => {
   const Icon = chapterIcon[chapter.icon] ?? Zap;
   const introStreaming = isStreaming && !chapter.visual && chapter.callouts.length === 0;
 
@@ -66,18 +75,38 @@ export const ChapterCard = ({ chapter, index, isStreaming }: ChapterCardProps): 
         </div>
       </header>
 
-      <p
-        className={`mb-4 max-w-3xl text-sm leading-relaxed text-ink-secondary ${
-          introStreaming ? 'stream-caret' : ''
-        }`}
-      >
-        {chapter.intro}
-      </p>
+      {chapter.intro && (
+        <p
+          className={`mb-4 max-w-3xl text-sm leading-relaxed text-ink-secondary ${
+            introStreaming ? 'stream-caret' : ''
+          }`}
+        >
+          {chapter.intro}
+        </p>
+      )}
 
       {chapter.visual ? (
         <VisualRenderer visual={chapter.visual} />
       ) : (
         isStreaming && <div className="shimmer h-40 rounded-2xl" />
+      )}
+
+      {chapter.actions.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-2" aria-label={`Explore ${chapter.title}`}>
+          {chapter.actions.map((action) => (
+            <button
+              key={action.id}
+              type="button"
+              disabled={actionsDisabled}
+              onClick={() => onAction(action)}
+              aria-label={action.aria_label}
+              className="group inline-flex min-h-10 items-center gap-2 rounded-xl border border-line bg-white px-3.5 py-2 text-sm font-semibold text-ink shadow-depth-4 transition hover:border-accent/30 hover:text-accent hover:shadow-depth-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {action.label}
+              <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+            </button>
+          ))}
+        </div>
       )}
 
       {chapter.callouts.length > 0 && (

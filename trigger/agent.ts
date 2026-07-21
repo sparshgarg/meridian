@@ -74,7 +74,7 @@ export const meridianChat = chat.agent({
     const body = toChatRequest(chatId, messages as { role: string; content: unknown }[]);
     const lastUser = [...body.messages].reverse().find((m) => m.role === 'user')?.content ?? '';
     const isScripted =
-      /(priorit|quarter|roadmap|dunning|compet|usage|evidence|impact|stripe|metronome)/i.test(
+      /(priorit|quarter|roadmap|dunning|compet|usage|evidence|impact|multi.entity|hidden gem|assumption|stripe|metronome)/i.test(
         lastUser,
       ) || body.messages.length <= 2;
 

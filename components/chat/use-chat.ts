@@ -1,7 +1,13 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
-import type { Chapter, ChatRequest, StatusUpdate, StreamEvent } from '@/types/chapter';
+import type {
+  Chapter,
+  ChatRequest,
+  StatusUpdate,
+  StreamEvent,
+  VisualAction,
+} from '@/types/chapter';
 
 export interface AssistantTurn {
   role: 'assistant';
@@ -39,7 +45,14 @@ const applyEvent = (turn: AssistantTurn, event: StreamEvent): AssistantTurn => {
         ...turn,
         chapters: [
           ...turn.chapters,
-          { id: event.chapter_id, title: event.title, icon: event.icon, intro: '', callouts: [] },
+          {
+            id: event.chapter_id,
+            title: event.title,
+            icon: event.icon,
+            intro: '',
+            callouts: [],
+            actions: [],
+          },
         ],
       };
     case 'chapter_intro_delta':
@@ -51,6 +64,8 @@ const applyEvent = (turn: AssistantTurn, event: StreamEvent): AssistantTurn => {
         ...c,
         callouts: [...c.callouts, event.callout],
       }));
+    case 'chapter_actions':
+      return mapChapter(turn, event.chapter_id, (c) => ({ ...c, actions: event.actions }));
     case 'message_end':
       return { ...turn, state: 'done', headline: event.headline };
     case 'error':
@@ -71,34 +86,36 @@ const mapChapter = (
 
 export const useChat = () => {
   const [state, setState] = useState<ChatState>({ turns: [], isStreaming: false, activeTurnId: null });
+  const stateRef = useRef(state);
+  stateRef.current = state;
   const conversationId = useRef(`conv_${Date.now().toString(36)}`);
 
   const setActiveTurn = useCallback((id: string) => {
     setState((s) => ({ ...s, activeTurnId: id }));
   }, []);
 
-  const sendMessage = useCallback(async (content: string): Promise<void> => {
+  const submit = useCallback(async (
+    content: string,
+    action?: VisualAction,
+  ): Promise<void> => {
     const userTurn: UserTurn = { role: 'user', id: `u_${Date.now().toString(36)}`, content };
     const assistantId = `a_${Date.now().toString(36)}`;
     const assistantTurn: AssistantTurn = {
       role: 'assistant', id: assistantId, state: 'streaming', statuses: [], chapters: [],
     };
 
-    let history: ChatRequest['messages'] = [];
-    setState((s) => {
-      history = [
-        ...s.turns.map((t) => ({
-          role: t.role,
-          content: t.role === 'user' ? t.content : t.headline ?? '',
-        })),
-        { role: 'user' as const, content },
-      ];
-      return {
-        turns: [...s.turns, userTurn, assistantTurn],
-        isStreaming: true,
-        activeTurnId: assistantId,
-      };
-    });
+    const history: ChatRequest['messages'] = [
+      ...stateRef.current.turns.map((turn) => ({
+        role: turn.role,
+        content: turn.role === 'user' ? turn.content : turn.headline ?? '',
+      })),
+      { role: 'user', content },
+    ];
+    setState((current) => ({
+      turns: [...current.turns, userTurn, assistantTurn],
+      isStreaming: true,
+      activeTurnId: assistantId,
+    }));
 
     const update = (event: StreamEvent): void => {
       setState((s) => ({
@@ -116,6 +133,9 @@ export const useChat = () => {
         body: JSON.stringify({
           conversation_id: conversationId.current,
           messages: history,
+          action: action
+            ? { type: 'deep_dive', id: action.id, theme_id: action.theme_id }
+            : undefined,
         } satisfies ChatRequest),
       });
       if (!res.ok || !res.body) throw new Error(`agent returned ${res.status}`);
@@ -140,5 +160,11 @@ export const useChat = () => {
     }
   }, []);
 
-  return { ...state, sendMessage, setActiveTurn };
+  const sendMessage = useCallback((content: string): Promise<void> => submit(content), [submit]);
+  const sendAction = useCallback(
+    (action: VisualAction): Promise<void> => submit(action.label, action),
+    [submit],
+  );
+
+  return { ...state, sendMessage, sendAction, setActiveTurn };
 };

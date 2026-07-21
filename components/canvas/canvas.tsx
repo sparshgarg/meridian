@@ -4,17 +4,25 @@ import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Sparkle } from 'lucide-react';
 import type { AssistantTurn } from '@/components/chat/use-chat';
+import type { VisualAction } from '@/types/chapter';
 import { ChapterCard } from './chapter-card';
 import { EmptyState } from './empty-state';
 
 interface CanvasProps {
   turn: AssistantTurn | null;
   prompt: string | null; // the user question this answer responds to
+  actionsDisabled: boolean;
+  onAction: (action: VisualAction) => void;
 }
 
 // The big surface. Renders the active assistant turn as a scrolling stack of
 // chapter cards, auto-following the stream as new chapters land.
-export const Canvas = ({ turn, prompt }: CanvasProps): JSX.Element => {
+export const Canvas = ({
+  turn,
+  prompt,
+  actionsDisabled,
+  onAction,
+}: CanvasProps): JSX.Element => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const chapterCount = turn?.chapters.length ?? 0;
   const lastChapter = turn?.chapters[chapterCount - 1];
@@ -58,6 +66,8 @@ export const Canvas = ({ turn, prompt }: CanvasProps): JSX.Element => {
             chapter={chapter}
             index={i}
             isStreaming={turn.state === 'streaming' && i === chapterCount - 1}
+            actionsDisabled={actionsDisabled}
+            onAction={onAction}
           />
         ))}
 

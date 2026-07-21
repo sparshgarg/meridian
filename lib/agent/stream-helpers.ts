@@ -1,4 +1,4 @@
-import type { StreamEvent } from '@/types/chapter';
+import type { DeepDiveId, StreamEvent } from '@/types/chapter';
 
 export const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
@@ -38,14 +38,31 @@ export async function* yieldStatus(
   yield { type: 'status', status: { id, label, detail, state: 'done' } };
 }
 
-export type FlowKind = 'prioritize' | 'dunning' | 'competitive' | 'usage_evidence';
+export type FlowKind =
+  | 'prioritize'
+  | 'dunning'
+  | 'competitive'
+  | 'usage_evidence'
+  | 'multi_entity'
+  | 'impact_details';
 
-export const pickFlowKind = (prompt: string): FlowKind => {
+const actionFlow: Record<DeepDiveId, FlowKind> = {
+  why_usage: 'usage_evidence',
+  why_not_dunning: 'dunning',
+  explore_multi_entity: 'multi_entity',
+  competitor_insight: 'competitive',
+  impact_details: 'impact_details',
+};
+
+export const pickFlowKind = (prompt: string, actionId?: DeepDiveId): FlowKind => {
+  if (actionId) return actionFlow[actionId];
   const p = prompt.toLowerCase();
   if (/(dunning|email|loud|volume|most requested|top request)/.test(p)) return 'dunning';
   if (/(compet|stripe|adyen|metronome|orb|chargebee|zuora|braintree|market|gap)/.test(p)) {
     return 'competitive';
   }
+  if (/(multi.entity|consolidated invoic|hidden gem)/.test(p)) return 'multi_entity';
+  if (/(impact assumption|impact detail|how.*impact|calculation)/.test(p)) return 'impact_details';
   if (/(usage|evidence|proof|source|impact|revenue|arr|why)/.test(p)) return 'usage_evidence';
   return 'prioritize';
 };

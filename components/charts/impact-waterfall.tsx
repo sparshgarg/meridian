@@ -26,7 +26,13 @@ const typeLabel = { risk: 'At risk', unblock: 'Unblocks', expansion: 'Expansion'
 
 // Waterfall via the invisible-base-bar technique; ordinal one-hue ramp
 // (magnitude job), total in the darkest step.
-export const ImpactWaterfall = ({ data }: { data: GetImpactProjectionOutput }): JSX.Element => {
+export const ImpactWaterfall = ({
+  data,
+  showDetails = false,
+}: {
+  data: GetImpactProjectionOutput;
+  showDetails?: boolean;
+}): JSX.Element => {
   let running = 0;
   interface WaterfallBar {
     name: string;
@@ -80,28 +86,30 @@ export const ImpactWaterfall = ({ data }: { data: GetImpactProjectionOutput }): 
         </BarChart>
       </ResponsiveContainer>
 
-      <div className="mt-3 space-y-1 border-t border-line pt-3">
-        {data.breakdown.map((b, i) => (
-          <motion.div
-            key={`${b.account_id}_${b.contribution_type}`}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 + i * 0.06 }}
-            className="flex items-baseline gap-2 rounded-lg px-2 py-1 text-xs hover:bg-black/[0.03]"
-          >
-            <span className="w-16 shrink-0 rounded-full bg-black/[0.05] px-2 py-0.5 text-center text-[10px] font-semibold text-ink-secondary">
-              {typeLabel[b.contribution_type]}
-            </span>
-            <span className="shrink-0 font-medium text-ink">{b.account_name}</span>
-            <span className="truncate text-ink-muted" title={b.reason}>
-              {b.reason}
-            </span>
-            <span className="ml-auto shrink-0 font-semibold tabular-nums text-ink">
-              {formatUsd(b.contribution_usd)}
-            </span>
-          </motion.div>
-        ))}
-      </div>
+      {showDetails && (
+        <div className="mt-3 space-y-1 border-t border-line pt-3">
+          {data.breakdown.map((b, i) => (
+            <motion.div
+              key={`${b.account_id}_${b.contribution_type}`}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 + i * 0.06 }}
+              className="flex items-baseline gap-2 rounded-lg px-2 py-1 text-xs hover:bg-black/[0.03]"
+            >
+              <span className="w-16 shrink-0 rounded-full bg-black/[0.05] px-2 py-0.5 text-center text-[10px] font-semibold text-ink-secondary">
+                {typeLabel[b.contribution_type]}
+              </span>
+              <span className="shrink-0 font-medium text-ink">{b.account_name}</span>
+              <span className="truncate text-ink-muted" title={b.reason}>
+                {b.reason}
+              </span>
+              <span className="ml-auto shrink-0 font-semibold tabular-nums text-ink">
+                {formatUsd(b.contribution_usd)}
+              </span>
+            </motion.div>
+          ))}
+        </div>
+      )}
     </ChartFrame>
   );
 };
