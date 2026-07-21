@@ -44,7 +44,7 @@ const runVisualTool = async <T>(
 export const createGeneralTools = (messageId: string) => ({
   find_accounts: tool({
     description:
-      'Resolve an account or customer name before requesting account signals. Returns real Postgres matches.',
+      'Resolve an account or customer name from the ClickHouse CDC replica before requesting account signals.',
     inputSchema: z.object({ query: z.string().min(1), limit: z.number().int().min(1).max(10).optional() }),
     execute: async ({ query, limit }) => {
       const label = `Resolving account: ${query}`;
@@ -66,7 +66,7 @@ export const createGeneralTools = (messageId: string) => ({
   }),
   get_account_signals: tool({
     description:
-      'Get one resolved account’s ClickHouse themes, source evidence, and Postgres deal context.',
+      'Get one resolved account’s ClickHouse themes, source evidence, and replicated deal context.',
     inputSchema: z.object({ account_id: z.string().uuid(), evidence_limit: z.number().int().min(1).max(20).optional() }),
     execute: async ({ account_id, evidence_limit }) => {
       const data = await runVisualTool(
@@ -107,7 +107,7 @@ export const createGeneralTools = (messageId: string) => ({
       runVisualTool(
         messageId,
         'competitors',
-        'Reading Postgres competitor reference',
+        'Reading ClickHouse: replicated competitor reference',
         'Competitive position',
         'swords',
         () => getCompetitivePosition({ theme_id: theme_id as ThemeId | undefined }),

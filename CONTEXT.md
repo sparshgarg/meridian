@@ -106,6 +106,46 @@ Three are **frontend-shaped** — transforms in `lib/queries/transforms.ts` (`to
 | ClickHouse | mentions | **1,802** |
 | ClickHouse | dunning mentions | 582 |
 
+### ClickHouse-primary audit + Postgres CDC status (verified live 2026-07-21 01:31 PDT)
+
+- The configured ClickHouse service reports `currentDatabase() = meridian` (ClickHouse 26.2.1.525). `SHOW DATABASES` includes `meridian`; this is not the `default` database.
+- `meridian.mentions`: 1,802 rows, 10 active parts, 212,290 compressed bytes (207.31 KiB), 123 accounts / 996 distinct source IDs, event dates 2026-01-22 through 2026-07-21.
+- `meridian.theme_scores_daily`: materialized view with 617 aggregate rows; its internal `SharedSummingMergeTree` occupies 18,329 bytes (17.90 KiB) across 9 active parts.
+- Mention sources: 1,503 ticket mentions (924 source tickets), 288 transcript mentions (61 source transcripts), 11 deal-loss mentions (11 source deals).
+- Postgres `postgres.public` remains OLTP/source staging: 123 accounts, 8 themes, 8 competitors, 14 deals, 956 raw tickets, 63 raw transcripts.
+- Production was exercised through the public Vercel URL after redeploy: prioritization analyzed 1,802 ClickHouse mentions, Figma returned 12 ClickHouse signals, and trends returned 8 theme series. Trigger Production's ClickHouse and Postgres connection settings match local configuration.
+- The user created ClickHouse Cloud replication `postgres analytics` targeting ClickHouse service `Meridian`; the Cloud UI now reports **Running**. Its initial snapshot completed on the same endpoint: `default.public_accounts` 123, `public_competitors` 8, `public_deals` 14, `public_raw_tickets` 956, `public_raw_transcripts` 63, and `public_themes` 8. Every count exactly matches Postgres. These are `SharedReplacingMergeTree` CDC tables with `_peerdb_synced_at`, `_peerdb_is_deleted`, and `_peerdb_version` metadata.
+- Analytical query functions now read both the derived `meridian.mentions` table and replicated `default.public_*` dimensions/facts in ClickHouse. Global prioritization, Figma/account questions, trends, competitors, evidence, and impact no longer read Postgres in production. Postgres remains the source-of-truth writer/staging store used by generation, extraction, and the OLTP→OLAP sync task.
+- Vercel's production ClickHouse password and Postgres URL were reset to the verified configuration and production redeployed (`dpl_4NuiY6YoYbBdbuYL6YAWxjryWhap`). This keeps the scripted in-process fallback connected if Trigger is unavailable; the normal production path remains Trigger.dev.
+- CDC-backed analytical tools deployed to Trigger Production as version `20260721.9` and Vercel as `dpl_4MB1gpe11BMXingynhMXGRACy5zW`. Post-deploy production checks passed for prioritization (1,802 mentions), Figma (12 signals), and the replicated competitor matrix (7 competitors).
+
+**How to view the OLAP data in ClickHouse Cloud:** the `Sync to ClickHouse` page is replication setup/status, not a table browser. Open the `Meridian` ClickHouse service → **SQL Console** → create/select a query tab → run:
+
+```sql
+SHOW DATABASES;
+USE meridian;
+SHOW TABLES;
+SELECT count(*) FROM mentions;
+SELECT
+  name,
+  total_rows,
+  formatReadableSize(total_bytes) AS storage
+FROM system.tables
+WHERE database = 'meridian'
+ORDER BY name;
+```
+
+To inspect the CDC tables, run:
+
+```sql
+SELECT database, name, engine, total_rows
+FROM system.tables
+WHERE database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA')
+ORDER BY database, name;
+```
+
+This shows the derived tables under `meridian` and CDC replicas under `default`. The `meridian-oltp` service's Storage page shows Postgres because it is the separate OLTP service; it cannot show the ClickHouse tables stored on the `Meridian` service.
+
 ### Backend foundation (Phases A1–A5 code on `main`)
 - Schemas + clients (`lib/db/*`), seed generator (`scripts/seed/*`), seed JSON under `data/seed/`
 - Extraction pipeline + Trigger tasks (`lib/extraction/*`, `trigger/extract-mentions.ts`) — Trigger.dev SDK **v4.5.5**

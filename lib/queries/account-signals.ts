@@ -1,5 +1,4 @@
 import { query as chQuery } from '@/lib/db/clickhouse';
-import { query as pgQuery, queryOne } from '@/lib/db/postgres';
 import type {
   AccountSearchResult,
   EvidenceItem,
@@ -41,13 +40,14 @@ export const findAccounts = async (input: FindAccountsInput): Promise<FindAccoun
   const queryText = input.query.trim();
   if (!queryText) return { matches: [] };
   const limit = Math.min(Math.max(input.limit ?? 5, 1), 10);
-  const { data } = await pgQuery<AccountRow>(
-    `SELECT id AS account_id, name AS account_name, industry, arr, segment
-     FROM accounts
-     WHERE name ILIKE $1
-     ORDER BY CASE WHEN lower(name) = lower($2) THEN 0 ELSE 1 END, arr DESC
-     LIMIT $3`,
-    [`%${queryText}%`, queryText, limit],
+  const { data } = await chQuery<AccountRow>(
+    `SELECT id AS account_id, name AS account_name, industry, toFloat64(arr) AS arr, segment
+     FROM default.public_accounts FINAL
+     WHERE _peerdb_is_deleted = 0
+       AND positionCaseInsensitiveUTF8(name, {query:String}) > 0
+     ORDER BY if(lower(name) = lower({query:String}), 0, 1), arr DESC
+     LIMIT {limit:UInt32}`,
+    { query: queryText, limit },
   );
   return { matches: data };
 };
@@ -55,11 +55,14 @@ export const findAccounts = async (input: FindAccountsInput): Promise<FindAccoun
 export const getAccountSignals = async (
   input: GetAccountSignalsInput,
 ): Promise<GetAccountSignalsOutput | null> => {
-  const account = await queryOne<AccountRow>(
-    `SELECT id AS account_id, name AS account_name, industry, arr, segment
-     FROM accounts WHERE id = $1`,
-    [input.account_id],
+  const { data: accountRows } = await chQuery<AccountRow>(
+    `SELECT id AS account_id, name AS account_name, industry, toFloat64(arr) AS arr, segment
+     FROM default.public_accounts FINAL
+     WHERE id = {account_id:UUID} AND _peerdb_is_deleted = 0
+     LIMIT 1`,
+    { account_id: input.account_id },
   );
+  const account = accountRows[0];
   if (!account) return null;
 
   const evidenceLimit = Math.min(Math.max(input.evidence_limit ?? 8, 1), 20);
@@ -84,8 +87,11 @@ export const getAccountSignals = async (
        LIMIT {limit:UInt32}`,
       { account_id: input.account_id, limit: evidenceLimit },
     ),
-    pgQuery<{ id: ThemeId; name: string }>('SELECT id, name FROM themes'),
-    pgQuery<{
+    chQuery<{ id: ThemeId; name: string }>(
+      `SELECT id, name FROM default.public_themes FINAL
+       WHERE _peerdb_is_deleted = 0`,
+    ),
+    chQuery<{
       deal_id: string;
       name: string;
       status: 'won' | 'lost' | 'in_progress';
@@ -93,9 +99,13 @@ export const getAccountSignals = async (
       blocking_theme_id: ThemeId | null;
       loss_reason: string | null;
     }>(
-      `SELECT id AS deal_id, name, status, amount, blocking_theme_id, loss_reason
-       FROM deals WHERE account_id = $1 ORDER BY created_at DESC`,
-      [input.account_id],
+      `SELECT id AS deal_id, name, status, toFloat64(amount) AS amount,
+              nullIf(blocking_theme_id, '') AS blocking_theme_id,
+              nullIf(loss_reason, '') AS loss_reason
+       FROM default.public_deals FINAL
+       WHERE account_id = {account_id:UUID} AND _peerdb_is_deleted = 0
+       ORDER BY created_at DESC`,
+      { account_id: input.account_id },
     ),
   ]);
 

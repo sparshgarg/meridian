@@ -1,4 +1,4 @@
-import { postgres } from '@/lib/db/postgres';
+import { query as chQuery } from '@/lib/db/clickhouse';
 import type {
   GetCompetitivePositionInput,
   GetCompetitivePositionOutput,
@@ -13,8 +13,8 @@ interface CompetitorRow {
   gap_notes: Record<string, string> | null;
 }
 
-// Pure Postgres — competitors.json is static reference data with no analytical
-// (ClickHouse) dimension, so this tool never touches mentions. Only 'full'
+// The matrix is static reference data replicated from Postgres into ClickHouse.
+// Only 'full'
 // counts as "a competitor has this" (both for rivals and Meridian itself) —
 // 'partial' support across the board IS the greenfield signal (everyone has a
 // bolted-on version, nobody has shipped the real thing), not evidence against
@@ -24,8 +24,13 @@ interface CompetitorRow {
 export const getCompetitivePosition = async (
   input: GetCompetitivePositionInput,
 ): Promise<GetCompetitivePositionOutput> => {
-  const { rows } = await postgres().query<CompetitorRow>(
-    'SELECT name, is_self, features, gap_notes FROM competitors ORDER BY is_self DESC, name',
+  const { data: rows } = await chQuery<CompetitorRow>(
+    `SELECT name, is_self,
+            JSONExtract(features, 'Map(String, String)') AS features,
+            JSONExtract(gap_notes, 'Map(String, String)') AS gap_notes
+     FROM default.public_competitors FINAL
+     WHERE _peerdb_is_deleted = 0
+     ORDER BY is_self DESC, name`,
   );
 
   const self = rows.find((r) => r.is_self);

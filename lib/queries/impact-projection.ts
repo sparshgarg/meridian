@@ -1,5 +1,4 @@
 import { query as chQuery } from '@/lib/db/clickhouse';
-import { query as pgQuery } from '@/lib/db/postgres';
 import type { GetImpactProjectionInput, GetImpactProjectionOutput } from '@/types/agent-tools';
 
 // Impact definitions (judgment calls — same "implement now, review real output
@@ -30,11 +29,20 @@ interface AccountMentionRow {
 }
 
 export const getImpactProjection = async (input: GetImpactProjectionInput): Promise<GetImpactProjectionOutput> => {
-  const { data: deals } = await pgQuery<DealRow>(
-    `SELECT d.account_id, a.name AS account_name, d.amount, d.loss_reason, d.status
-     FROM deals d JOIN accounts a ON a.id = d.account_id
-     WHERE d.blocking_theme_id = $1 AND d.status IN ('lost', 'in_progress')`,
-    [input.theme_id],
+  const { data: deals } = await chQuery<DealRow>(
+    `SELECT d.account_id, a.name AS account_name, toFloat64(d.amount) AS amount,
+            nullIf(d.loss_reason, '') AS loss_reason, d.status
+     FROM (
+       SELECT * FROM default.public_deals FINAL
+       WHERE _peerdb_is_deleted = 0
+     ) AS d
+     INNER JOIN (
+       SELECT id, name FROM default.public_accounts FINAL
+       WHERE _peerdb_is_deleted = 0
+     ) AS a ON a.id = d.account_id
+     WHERE d.blocking_theme_id = {theme_id:String}
+       AND d.status IN ('lost', 'in_progress')`,
+    { theme_id: input.theme_id },
   );
 
   const dealAccountIds = new Set(deals.map((d) => d.account_id));
@@ -50,9 +58,11 @@ export const getImpactProjection = async (input: GetImpactProjectionInput): Prom
 
   const expansionCandidates = mentionRollup.filter((r) => !dealAccountIds.has(r.account_id));
   const { data: expansionNames } = expansionCandidates.length
-    ? await pgQuery<{ id: string; name: string }>('SELECT id, name FROM accounts WHERE id = ANY($1)', [
-        expansionCandidates.map((r) => r.account_id),
-      ])
+    ? await chQuery<{ id: string; name: string }>(
+        `SELECT id, name FROM default.public_accounts FINAL
+         WHERE _peerdb_is_deleted = 0 AND has({account_ids:Array(UUID)}, id)`,
+        { account_ids: expansionCandidates.map((r) => r.account_id) },
+      )
     : { data: [] as { id: string; name: string }[] };
   const nameById = new Map(expansionNames.map((r) => [r.id, r.name]));
 

@@ -1,5 +1,4 @@
 import { query as chQuery } from '@/lib/db/clickhouse';
-import { query as pgQuery } from '@/lib/db/postgres';
 import type { SignalSummary, ThemeVolumeStat, ThemeTrend } from './transforms';
 
 // Aggregate shapes for Person B's FE-shaped transforms (toStatRow/toVolumeTrap/
@@ -30,7 +29,11 @@ export const getSignalSummary = async (windowDays = 180): Promise<SignalSummary>
        )`,
       { window_days: windowDays },
     ),
-    pgQuery<{ total: number }>('SELECT COALESCE(SUM(arr), 0) AS total FROM accounts'),
+    chQuery<{ total: number }>(
+      `SELECT toFloat64(coalesce(sum(arr), 0)) AS total
+       FROM default.public_accounts FINAL
+       WHERE _peerdb_is_deleted = 0`,
+    ),
   ]);
 
   const n = current[0]?.n ?? 0;
@@ -51,7 +54,10 @@ export const getSignalSummary = async (windowDays = 180): Promise<SignalSummary>
 };
 
 export const getThemeVolumeStats = async (windowDays = 180): Promise<ThemeVolumeStat[]> => {
-  const { data: themes } = await pgQuery<{ id: string; name: string }>('SELECT id, name FROM themes');
+  const { data: themes } = await chQuery<{ id: string; name: string }>(
+    `SELECT id, name FROM default.public_themes FINAL
+     WHERE _peerdb_is_deleted = 0`,
+  );
   const { data: perAccount } = await chQuery<{
     theme_id: string;
     account_id: string;
@@ -85,7 +91,10 @@ export const getThemeVolumeStats = async (windowDays = 180): Promise<ThemeVolume
 // that from acceleration; this layer only supplies raw weekly counts).
 export const getThemeTrends = async (weeks = 24): Promise<ThemeTrend[]> => {
   const windowDays = weeks * 7;
-  const { data: themes } = await pgQuery<{ id: string; name: string }>('SELECT id, name FROM themes');
+  const { data: themes } = await chQuery<{ id: string; name: string }>(
+    `SELECT id, name FROM default.public_themes FINAL
+     WHERE _peerdb_is_deleted = 0`,
+  );
   const { data: rows } = await chQuery<{ theme_id: string; week: string; n: number }>(
     `SELECT theme_id, toStartOfWeek(event_date) AS week, count() AS n
      FROM mentions WHERE event_date >= today() - {window_days:UInt32}

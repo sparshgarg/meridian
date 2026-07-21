@@ -1,5 +1,4 @@
 import { query as chQuery } from '@/lib/db/clickhouse';
-import { query as pgQuery } from '@/lib/db/postgres';
 import type { ListOpportunitiesInput, ListOpportunitiesOutput, OpportunityRow } from '@/types/agent-tools';
 import { getCompetitivePosition } from './competitive-position';
 import { getImpactProjection } from './impact-projection';
@@ -65,11 +64,15 @@ const fetchRawCounts = async (windowDays: number): Promise<RawCountRow[]> => {
 export const listOpportunitiesRanked = async (input: ListOpportunitiesInput): Promise<ListOpportunitiesOutput> => {
   const windowDays = input.time_window_days ?? 90;
 
-  const { data: themeRows } = await pgQuery<{ id: string; name: string; category: string }>(
+  const { data: themeRows } = await chQuery<{ id: string; name: string; category: string }>(
     input.category_filter && input.category_filter !== 'all'
-      ? 'SELECT id, name, category FROM themes WHERE category = $1'
-      : 'SELECT id, name, category FROM themes',
-    input.category_filter && input.category_filter !== 'all' ? [input.category_filter] : [],
+      ? `SELECT id, name, category FROM default.public_themes FINAL
+         WHERE _peerdb_is_deleted = 0 AND category = {category:String}`
+      : `SELECT id, name, category FROM default.public_themes FINAL
+         WHERE _peerdb_is_deleted = 0`,
+    input.category_filter && input.category_filter !== 'all'
+      ? { category: input.category_filter }
+      : undefined,
   );
 
   const [accountAgg, rawCounts] = await Promise.all([fetchAccountAgg(windowDays), fetchRawCounts(windowDays)]);

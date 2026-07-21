@@ -1,5 +1,4 @@
 import { query as chQuery } from '@/lib/db/clickhouse';
-import { query as pgQuery } from '@/lib/db/postgres';
 import type { GetThemeEvidenceInput, GetThemeEvidenceOutput, EvidenceItem } from '@/types/agent-tools';
 import type { Account } from '@/types/account';
 
@@ -25,14 +24,18 @@ interface AccountRollupRow {
 // evidence sample is capped + ranked by severity (what the card stack shows),
 // while requesting_accounts must reflect EVERY account that mentioned the theme
 // — capping that too would silently undercount "N accounts behind this theme".
-// account_name isn't denormalized onto mentions (by design — see schema.
-// clickhouse.sql), so it's the one field this tool pulls from Postgres: the
-// OLAP layer answers "what/how much", the OLTP layer answers "who".
+// account_name isn't denormalized onto mentions; the ClickHouse CDC account
+// replica supplies it without a production read-through to Postgres.
 export const getThemeEvidence = async (input: GetThemeEvidenceInput): Promise<GetThemeEvidenceOutput> => {
   const limit = input.limit ?? 20;
 
   const [themeRow, evidenceRows, rollupRows] = await Promise.all([
-    pgQuery<{ name: string }>('SELECT name FROM themes WHERE id = $1', [input.theme_id]),
+    chQuery<{ name: string }>(
+      `SELECT name FROM default.public_themes FINAL
+       WHERE id = {theme_id:String} AND _peerdb_is_deleted = 0
+       LIMIT 1`,
+      { theme_id: input.theme_id },
+    ),
     chQuery<MentionRow>(
       `SELECT source_type, source_id, account_id, account_arr, account_segment, verbatim_snippet, event_date, severity
        FROM mentions
@@ -56,7 +59,11 @@ export const getThemeEvidence = async (input: GetThemeEvidenceInput): Promise<Ge
 
   const accountIds = [...new Set([...evidenceRows.data.map((r) => r.account_id), ...rollupRows.data.map((r) => r.account_id)])];
   const { data: nameRows } = accountIds.length
-    ? await pgQuery<{ id: string; name: string }>('SELECT id, name FROM accounts WHERE id = ANY($1)', [accountIds])
+    ? await chQuery<{ id: string; name: string }>(
+        `SELECT id, name FROM default.public_accounts FINAL
+         WHERE _peerdb_is_deleted = 0 AND has({account_ids:Array(UUID)}, id)`,
+        { account_ids: accountIds },
+      )
     : { data: [] as { id: string; name: string }[] };
   const nameById = new Map(nameRows.map((r) => [r.id, r.name]));
 
