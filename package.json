@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
+    "test:navigation": "tsx scripts/test-answer-navigation.ts",
     "trigger:dev": "npx trigger.dev@4.5.5 dev",
     "db:init": "tsx scripts/init-schema.ts",
     "seed:load": "tsx scripts/generate-data.ts --load-seeds",
@@ -39,6 +40,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@types/node": "^20.16.5",
     "@types/pg": "^8.20.0",
     "@types/react": "^18.3.5",

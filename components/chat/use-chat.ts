@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
   Chapter,
   ChatRequest,
@@ -8,6 +8,11 @@ import type {
   StreamEvent,
   VisualAction,
 } from '@/types/chapter';
+import {
+  popAnswer,
+  pushAnswer,
+  type AnswerNavigationState,
+} from './answer-navigation';
 
 export interface AssistantTurn {
   role: 'assistant';
@@ -32,6 +37,8 @@ interface ChatState {
   isStreaming: boolean;
   // which assistant turn the canvas is showing; defaults to the latest
   activeTurnId: string | null;
+  navigation: AnswerNavigationState;
+  focusRestoreKey: number;
 }
 
 const applyEvent = (turn: AssistantTurn, event: StreamEvent): AssistantTurn => {
@@ -85,10 +92,39 @@ const mapChapter = (
 });
 
 export const useChat = () => {
-  const [state, setState] = useState<ChatState>({ turns: [], isStreaming: false, activeTurnId: null });
+  const [state, setState] = useState<ChatState>({
+    turns: [],
+    isStreaming: false,
+    activeTurnId: null,
+    navigation: { stack: [] },
+    focusRestoreKey: 0,
+  });
   const stateRef = useRef(state);
   stateRef.current = state;
   const conversationId = useRef(`conv_${Date.now().toString(36)}`);
+  const scrollPositions = useRef(new Map<string, number>());
+
+  const restorePreviousAnswer = useCallback(() => {
+    setState((current) => {
+      const { navigation, entry } = popAnswer(current.navigation);
+      if (!entry) return current;
+      scrollPositions.current.set(entry.turnId, entry.scrollTop);
+      return {
+        ...current,
+        navigation,
+        activeTurnId: entry.turnId,
+        focusRestoreKey: current.focusRestoreKey + 1,
+      };
+    });
+  }, []);
+
+  useEffect(() => {
+    const handlePopState = (): void => {
+      if (stateRef.current.navigation.stack.length > 0) restorePreviousAnswer();
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [restorePreviousAnswer]);
 
   const setActiveTurn = useCallback((id: string) => {
     setState((s) => ({ ...s, activeTurnId: id }));
@@ -103,6 +139,10 @@ export const useChat = () => {
     const assistantTurn: AssistantTurn = {
       role: 'assistant', id: assistantId, state: 'streaming', statuses: [], chapters: [],
     };
+    const parentTurnId = action ? stateRef.current.activeTurnId : null;
+    const parentEntry = parentTurnId
+      ? { turnId: parentTurnId, scrollTop: scrollPositions.current.get(parentTurnId) ?? 0 }
+      : null;
 
     const history: ChatRequest['messages'] = [
       ...stateRef.current.turns.map((turn) => ({
@@ -115,7 +155,15 @@ export const useChat = () => {
       turns: [...current.turns, userTurn, assistantTurn],
       isStreaming: true,
       activeTurnId: assistantId,
+      navigation: parentEntry ? pushAnswer(current.navigation, parentEntry) : current.navigation,
+      focusRestoreKey: current.focusRestoreKey,
     }));
+    if (parentEntry) {
+      window.history.pushState(
+        { meridianAnswerDepth: stateRef.current.navigation.stack.length + 1 },
+        '',
+      );
+    }
 
     const update = (event: StreamEvent): void => {
       setState((s) => ({
@@ -165,6 +213,30 @@ export const useChat = () => {
     (action: VisualAction): Promise<void> => submit(action.label, action),
     [submit],
   );
+  const setScrollPosition = useCallback((turnId: string, scrollTop: number) => {
+    scrollPositions.current.set(turnId, scrollTop);
+  }, []);
+  const getScrollPosition = useCallback(
+    (turnId: string): number => scrollPositions.current.get(turnId) ?? 0,
+    [],
+  );
+  const goBack = useCallback(() => {
+    if (stateRef.current.navigation.stack.length === 0) return;
+    if (window.history.state?.meridianAnswerDepth) {
+      window.history.back();
+      return;
+    }
+    restorePreviousAnswer();
+  }, [restorePreviousAnswer]);
 
-  return { ...state, sendMessage, sendAction, setActiveTurn };
+  return {
+    ...state,
+    canGoBack: state.navigation.stack.length > 0,
+    sendMessage,
+    sendAction,
+    setActiveTurn,
+    goBack,
+    setScrollPosition,
+    getScrollPosition,
+  };
 };

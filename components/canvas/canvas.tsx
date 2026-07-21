@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkle } from 'lucide-react';
+import { ArrowLeft, Sparkle } from 'lucide-react';
 import type { AssistantTurn } from '@/components/chat/use-chat';
 import type { VisualAction } from '@/types/chapter';
 import { ChapterCard } from './chapter-card';
@@ -13,6 +13,11 @@ interface CanvasProps {
   prompt: string | null; // the user question this answer responds to
   actionsDisabled: boolean;
   onAction: (action: VisualAction) => void;
+  canGoBack: boolean;
+  onBack: () => void;
+  scrollTop: number;
+  onScrollPosition: (scrollTop: number) => void;
+  focusRestoreKey: number;
 }
 
 // The big surface. Renders the active assistant turn as a scrolling stack of
@@ -22,10 +27,28 @@ export const Canvas = ({
   prompt,
   actionsDisabled,
   onAction,
+  canGoBack,
+  onBack,
+  scrollTop,
+  onScrollPosition,
+  focusRestoreKey,
 }: CanvasProps): JSX.Element => {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const backRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRestoreKey = useRef(focusRestoreKey);
   const chapterCount = turn?.chapters.length ?? 0;
   const lastChapter = turn?.chapters[chapterCount - 1];
+
+  useLayoutEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollTop });
+    const restored = previousFocusRestoreKey.current !== focusRestoreKey;
+    if (restored) {
+      scrollRef.current?.focus({ preventScroll: true });
+    } else if (canGoBack) {
+      backRef.current?.focus({ preventScroll: true });
+    }
+    previousFocusRestoreKey.current = focusRestoreKey;
+  }, [canGoBack, focusRestoreKey, scrollTop, turn?.id]);
 
   useEffect(() => {
     if (turn?.state === 'streaming') {
@@ -36,8 +59,26 @@ export const Canvas = ({
   if (!turn) return <EmptyState />;
 
   return (
-    <div ref={scrollRef} className="h-full overflow-y-auto scroll-smooth">
+    <div
+      ref={scrollRef}
+      tabIndex={-1}
+      aria-label="Answer canvas"
+      onScroll={(event) => onScrollPosition(event.currentTarget.scrollTop)}
+      className="h-full overflow-y-auto scroll-smooth focus:outline-none"
+    >
       <div className="mx-auto max-w-4xl space-y-5 px-6 py-8 pb-24">
+        {canGoBack && (
+          <button
+            ref={backRef}
+            type="button"
+            onClick={onBack}
+            className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-line bg-card-strong px-3.5 py-2 text-sm font-semibold text-ink shadow-depth-4 transition hover:border-accent/30 hover:text-accent hover:shadow-depth-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            Back to previous answer
+          </button>
+        )}
+
         {prompt && (
           <motion.p
             initial={{ opacity: 0, y: 10 }}

@@ -1,14 +1,10 @@
 import { task } from '@trigger.dev/sdk';
 import { chat } from '@trigger.dev/sdk/ai';
-import { streamText, stepCountIs, tool } from 'ai';
+import { streamText, stepCountIs } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
-import { z } from 'zod';
 import type { ChapterVisual, ChatRequest, StreamEvent } from '@/types/chapter';
 import { runAgentFlow } from '@/lib/agent/prioritize-flow';
-import { listOpportunitiesRanked } from '@/lib/queries/opportunities-ranked';
-import { getThemeEvidence } from '@/lib/queries/theme-evidence';
-import { getCompetitivePosition } from '@/lib/queries/competitive-position';
-import { getImpactProjection } from '@/lib/queries/impact-projection';
+import { createGeneralTools } from './general-tools';
 import { chapterEvents } from './streams';
 
 export const statusEvent = (
@@ -26,18 +22,17 @@ export const visualEvent = (chapterId: string, visual: ChapterVisual): StreamEve
 
 export const encodeNdjson = (event: StreamEvent): string => `${JSON.stringify(event)}\n`;
 
-const toChatRequest = (
-  chatId: string,
-  messages: { role: string; content: unknown }[],
-): ChatRequest => ({
-  conversation_id: chatId,
-  messages: messages
-    .filter((m) => m.role === 'user' || m.role === 'assistant')
-    .map((m) => ({
-      role: m.role as 'user' | 'assistant',
-      content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
-    })),
-});
+const headlineFromModel = (text: string): string => {
+  const firstLine = text
+    .split('\n')
+    .map((line) => line.trim())
+    .find(Boolean);
+  return (firstLine ?? 'Analysis complete.')
+    .replace(/^[#>*\s]+/, '')
+    .replace(/\*\*/g, '')
+    .replace(/`/g, '')
+    .slice(0, 240);
+};
 
 const pipeChapterFlow = async (body: ChatRequest): Promise<string> => {
   let headline = 'Analysis complete.';
@@ -62,71 +57,38 @@ export const streamMeridianAnswer = task({
   },
 });
 
-/**
- * Required hackathon primitive: Trigger.dev chat.agent().
- * Scripted chapter flow for prioritize / keyword follow-ups (hybrid orchestration).
- * LLM+tools path handles open-ended follow-ups that don't match a scripted kind.
- */
+/** General questions run here; the main demo and typed actions stay scripted. */
 export const meridianChat = chat.agent({
   id: 'meridian-chat',
   maxDuration: 300,
-  run: async ({ messages, chatId, signal }) => {
-    const body = toChatRequest(chatId, messages as { role: string; content: unknown }[]);
-    const lastUser = [...body.messages].reverse().find((m) => m.role === 'user')?.content ?? '';
-    const isScripted =
-      /(priorit|quarter|roadmap|dunning|compet|usage|evidence|impact|multi.entity|hidden gem|assumption|stripe|metronome)/i.test(
-        lastUser,
-      ) || body.messages.length <= 2;
-
-    if (isScripted) {
-      const headline = await pipeChapterFlow(body);
-      return streamText({
-        ...chat.toStreamTextOptions(),
-        model: anthropic(process.env.AGENT_MODEL ?? 'claude-haiku-4-5-20251001'),
-        system: 'You are Meridian, a product intelligence agent. Reply in one short sentence only.',
-        messages: [{ role: 'user', content: `Confirm this headline to the PM: ${headline}` }],
-        abortSignal: signal,
-        stopWhen: stepCountIs(1),
-      });
-    }
-
-    // Open follow-ups: LLM-driven with the four query tools.
+  idleTimeoutInSeconds: 0,
+  run: async ({ messages, signal }) => {
+    const messageId = `msg_${Date.now().toString(36)}`;
+    await chapterEvents.append({ type: 'message_start', message_id: messageId });
+    const tools = createGeneralTools(messageId);
+    chat.endRun();
     return streamText({
-      ...chat.toStreamTextOptions(),
+      ...chat.toStreamTextOptions({ tools }),
       model: anthropic(process.env.AGENT_MODEL ?? 'claude-sonnet-4-5-20250929'),
       system: `You are Meridian, a visual-first product intelligence agent for Meridian Payments Billing.
-Answer with short, evidence-backed claims. Prefer calling tools over guessing. Theme ids are
+Use the typed tools for every factual claim; never guess or invent data. Resolve customer names with
+find_accounts before get_account_signals. If no account matches, say so plainly and do not substitute
+global prioritization. Choose the one tool-driven visual that best answers the request, using a second
+tool only when entity resolution requires it. Your final text must be one concise sentence that works
+as the answer headline. Do not output markdown, tables, chart specs, JSON, or additional sections;
+the application renders the selected tool output itself. Theme ids are
 usage_based_billing, multi_entity_invoicing, dunning_customization, latam_tax, hybrid_revrec,
 webhook_reliability, salesforce_sync, custom_invoice_pdf.`,
       messages,
+      tools,
       abortSignal: signal,
       stopWhen: stepCountIs(8),
-      tools: {
-        list_opportunities_ranked: tool({
-          description: 'Rank themes by ARR-weighted signal strength',
-          inputSchema: z.object({ time_window_days: z.number().optional() }),
-          execute: async ({ time_window_days }) =>
-            listOpportunitiesRanked({ time_window_days: time_window_days ?? 180 }),
-        }),
-        get_theme_evidence: tool({
-          description: 'Fetch verbatim evidence quotes for a theme',
-          inputSchema: z.object({
-            theme_id: z.string(),
-            limit: z.number().optional(),
-          }),
-          execute: async ({ theme_id, limit }) =>
-            getThemeEvidence({ theme_id, limit: limit ?? 10 }),
-        }),
-        get_competitive_position: tool({
-          description: 'Competitor feature matrix for a theme',
-          inputSchema: z.object({ theme_id: z.string().optional() }),
-          execute: async ({ theme_id }) => getCompetitivePosition({ theme_id }),
-        }),
-        get_impact_projection: tool({
-          description: 'ARR impact breakdown for a theme',
-          inputSchema: z.object({ theme_id: z.string() }),
-          execute: async ({ theme_id }) => getImpactProjection({ theme_id }),
-        }),
+      onFinish: async ({ text }) => {
+        await chapterEvents.append({
+          type: 'message_end',
+          message_id: messageId,
+          headline: headlineFromModel(text),
+        });
       },
     });
   },

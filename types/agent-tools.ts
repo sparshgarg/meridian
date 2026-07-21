@@ -101,3 +101,55 @@ export interface GetImpactProjectionOutput {
     reason: string;
   }[];
 }
+
+// Tools for safe entity-aware data chat. Account identity is resolved in
+// Postgres; all signal aggregation and evidence comes from ClickHouse.
+export interface AccountSearchResult {
+  account_id: string;
+  account_name: string;
+  industry: string;
+  arr: number;
+  segment: Account['segment'];
+}
+
+export interface FindAccountsInput {
+  query: string;
+  limit?: number;
+}
+
+export interface FindAccountsOutput {
+  matches: AccountSearchResult[];
+}
+
+export interface AccountThemeSignal {
+  theme_id: ThemeId;
+  theme_name: string;
+  mention_count: number;
+  avg_severity: number;
+  latest_signal_date: string;
+  source_counts: {
+    tickets: number;
+    transcripts: number;
+    deal_losses: number;
+  };
+}
+
+export interface GetAccountSignalsInput {
+  account_id: string;
+  evidence_limit?: number;
+}
+
+export interface GetAccountSignalsOutput {
+  account: AccountSearchResult;
+  themes: AccountThemeSignal[];
+  evidence: EvidenceItem[];
+  deals: {
+    deal_id: string;
+    name: string;
+    status: 'won' | 'lost' | 'in_progress';
+    amount: number;
+    blocking_theme_id?: ThemeId;
+    loss_reason?: string;
+  }[];
+  total_mentions: number;
+}

@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { CalendarRange, FileSearch, Megaphone, Swords } from 'lucide-react';
+import { Building2, CalendarRange, FileSearch, Swords, TrendingUp } from 'lucide-react';
 
 const SUGGESTIONS = [
   {
@@ -10,9 +10,14 @@ const SUGGESTIONS = [
     tint: 'text-accent bg-accent-soft',
   },
   {
-    icon: Megaphone,
-    label: 'Should we build what customers ask for the most?',
+    icon: Building2,
+    label: 'What does Figma want?',
     tint: 'text-coral bg-coral-soft',
+  },
+  {
+    icon: TrendingUp,
+    label: 'What themes are growing fastest?',
+    tint: 'text-aqua bg-aqua-soft',
   },
   {
     icon: Swords,
@@ -22,7 +27,7 @@ const SUGGESTIONS = [
   {
     icon: FileSearch,
     label: 'Show me the evidence for usage-based billing',
-    tint: 'text-aqua bg-aqua-soft',
+    tint: 'text-coral bg-coral-soft',
   },
 ];
 

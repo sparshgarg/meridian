@@ -8,6 +8,7 @@ import { OpportunityRanking } from '@/components/charts/opportunity-ranking';
 import { StatRow } from '@/components/charts/stat-row';
 import { TrendLines } from '@/components/charts/trend-lines';
 import { VolumeTrap } from '@/components/charts/volume-trap';
+import { AccountSnapshot } from '@/components/charts/account-snapshot';
 
 // The one switch that maps the streaming contract onto chart components.
 // Adding a visual = add a member to ChapterVisual in /types/chapter.ts,
@@ -28,6 +29,8 @@ export const VisualRenderer = ({ visual }: { visual: ChapterVisual }): JSX.Eleme
       return <ImpactWaterfall data={visual.data} />;
     case 'impact_breakdown':
       return <ImpactWaterfall data={visual.data} showDetails />;
+    case 'account_snapshot':
+      return <AccountSnapshot data={visual.data} />;
     case 'trend_lines':
       return <TrendLines series={visual.data.series} />;
   }

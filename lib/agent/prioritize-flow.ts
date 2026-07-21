@@ -51,8 +51,10 @@ export async function* runAgentFlow(body: ChatRequest): AsyncGenerator<StreamEve
   try {
     if (kind === 'prioritize') {
       yield* runPrioritizeFlow(messageId);
-    } else {
+    } else if (kind !== 'general') {
       yield* runDeepDiveFlow(kind, messageId);
+    } else {
+      throw new Error('General questions must be routed through meridian-chat');
     }
   } catch (error) {
     yield {

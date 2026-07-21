@@ -27,7 +27,7 @@ const doneStatus = (id: string, label: string, detail: string): StreamEvent => (
 });
 
 export async function* runDeepDiveFlow(
-  kind: Exclude<FlowKind, 'prioritize'>,
+  kind: Exclude<FlowKind, 'prioritize' | 'general'>,
   messageId: string,
 ): AsyncGenerator<StreamEvent> {
   if (kind === 'dunning') yield* runDunning(messageId);

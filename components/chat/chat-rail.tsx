@@ -87,7 +87,9 @@ export const ChatRail = ({ turns, isStreaming, activeTurnId, onSend, onSelectTur
       <div className="border-t border-line px-4 py-4">
         <Composer onSend={onSend} disabled={isStreaming} />
         <p className="mt-2 text-center text-[10px] text-ink-muted/80">
-          Mock mode · answers replay seeded demo data
+          {process.env.NEXT_PUBLIC_AGENT_MODE === 'live'
+            ? 'Live mode · ClickHouse + Trigger.dev'
+            : 'Mock mode · answers replay seeded demo data'}
         </p>
       </div>
     </aside>

@@ -42,6 +42,7 @@ The agent must correctly identify, from the seeded data:
 - **Trigger.dev `chat.agent()`** — REQUIRED by the hackathon. The agent orchestration must use this primitive, not a raw Next.js route or bare Vercel AI SDK. Background jobs (ingestion, extraction, sync) also run as Trigger.dev tasks with `batchTrigger` for fan-out.
 - **Orchestration decision: HYBRID** — scripted chapter sequence for the main "what should we prioritize?" flow (for demo reliability), LLM-driven for follow-up questions. LLM reasoning goes into synthesis WITHIN each chapter (verdict text, callouts), not the sequencing between chapters.
 - **Progressive disclosure (2026-07-21):** the initial prioritization answer is only a compact ranking + impact chart and ends with `You should prioritize usage-based billing.` Volume trap, hidden gem evidence, competitor matrix, and impact assumptions are separate typed deep dives that issue fresh agent requests and database queries.
+- **Hybrid data chat (2026-07-21):** only the exact polished prioritization prompt and typed deep-dive actions use deterministic flows. Every other prompt is sent through the deployed Trigger.dev `meridian-chat` `chat.agent()`, whose LLM selects safe typed tools; no model-generated SQL is accepted.
 
 ### Frontend + streaming (Person B, DONE; live seam wired)
 - Next.js 14 App Router + TypeScript strict + Tailwind + Recharts + framer-motion.
@@ -128,6 +129,18 @@ Three are **frontend-shaped** — transforms in `lib/queries/transforms.ts` (`to
 - `impact_waterfall` now stays summary-only; `impact_breakdown` shows account-level assumptions only after its deep-dive request.
 - Verification passed: `npm run typecheck`, `npm run build`, and `npx tsx scripts/e2e-live-stream.ts`.
 
+### General data chat + deep-dive navigation ✅ VERIFIED LOCALLY (2026-07-21)
+- Root cause repaired: `pickFlowKind()` previously returned `prioritize` for every unmatched prompt, and the live `stream-meridian-answer` task always called `runAgentFlow()` instead of invoking the registered `chat.agent()`. This made arbitrary questions look live while returning the global scripted answer.
+- Routing is now explicit: exact main-demo prompt / typed actions → scripted Trigger task; all other prompts → server-side `AgentChat` → deployed `meridian-chat` `chat.agent()` → typed tools → the existing `StreamEvent` canvas contract.
+- Safe tools: `find_accounts` (parameterized Postgres identity lookup), `get_account_signals` (ClickHouse account themes/evidence + Postgres deal context), theme trends, competitive position, ranked opportunities, theme evidence, and impact. There is no free-form SQL tool.
+- Added the reusable `account_snapshot` visual and broader supported suggestions (account, trends, competitors, evidence, prioritization).
+- Figma is now a real seeded/live enterprise account (renamed from the prior design-tools fixture so account count is unchanged): $310K ARR, 12 ClickHouse signals, 9 usage-based mentions, one multi-entity mention, and a $218,032 in-progress usage-billing deal. Source cards include `TICK-00048` and `TICK-00121`.
+- Unknown accounts return an explicit no-match headline after `find_accounts`; they never fall back to prioritization.
+- Deep dives use a typed client navigation stack. Back restores the cached parent turn and scroll position without a request; nested parent/child history and browser Back are supported.
+- Browser E2E passed for prioritize → competitor → Back and prioritize → dunning → Back, asserting each deep dive adds one POST while each Back adds zero.
+- Local live prompts verified: prioritize (2 scripted modules), Figma (account snapshot + traceable evidence), fastest-growing themes (trend visual), competitors (matrix), and unknown account (honest no-data).
+- Verification passed: `npm run typecheck`, `npm run test:navigation`, `npm run build`, and Playwright `tests/answer-navigation.spec.ts`.
+
 ### Environment (DONE locally + Sparsh Vercel Production)
 - `.env.local` has ClickHouse, Postgres (ClickHouse-managed), multi-provider LLM keys, and `NEXT_PUBLIC_AGENT_MODE=live` locally.
 - **Vercel Production is on Sparsh's account** — project `meridian` under `sparshgarg98-2119s-projects`. Production URL: `https://meridian-blush-iota.vercel.app`. Production env vars set (including `NEXT_PUBLIC_AGENT_MODE=live`) and deployed 2026-07-21. Homepage 200 + live `/api/chat` NDJSON smoke OK.
@@ -205,7 +218,7 @@ Three are **frontend-shaped** — transforms in `lib/queries/transforms.ts` (`to
 5. [x] `docs/architecture.md` with Mermaid OLTP+OLAP diagram
 
 ### Phase A5 — Deploy + submit ⏳ PARTIAL
-1. [x] `npx trigger.dev@4.5.5 deploy` — **SUCCEEDED** 2026-07-21 as version `20260721.2` (6 tasks). Production smoke: initial 2-module answer plus typed dunning and multi-entity deep dives completed with fresh ClickHouse statuses.
+1. [x] `npx trigger.dev@4.5.5 deploy` — **SUCCEEDED** 2026-07-21 as version `20260721.3` (6 tasks). Includes the hybrid general `chat.agent()` path plus scripted main/deep-dive flows.
 2. [x] `SUBMISSION.md` updated with real verified counts
 3. [ ] Demo video — **user records** (open on live product, max 5 min)
 4. [x] MIT `LICENSE`; `README.md` rewritten (was 2-line placeholder)
@@ -282,14 +295,14 @@ Phases A1–A4 + live extraction + agent E2E + Trigger Cloud deploy + **Sparsh V
 | --- | --- |
 | Data pipeline + extraction (1,802 mentions) | ✅ Done |
 | Scoring + hybrid agent + E2E | ✅ Done |
-| Trigger Cloud deploy `20260721.2` | ✅ Done |
+| Trigger Cloud deploy `20260721.3` | ✅ Done |
 | Vercel Production (Sparsh) live mode | ✅ Done |
 | Public GitHub `sparshgarg/meridian` | ✅ Done |
 | **Demo video** (≤5 min on live URL) | ❌ User records |
 | **Hackathon submission form** | ❌ User (deadline midnight AoE Jul 23) |
 
 ### Must do before submit
-1. [x] **Trigger Cloud deploy** — version `20260721.2` live; progressive-disclosure stream verify OK
+1. [x] **Trigger Cloud deploy** — version `20260721.3` live; hybrid data chat + progressive-disclosure stream verify OK
 2. [x] **Vercel Production on Sparsh's account** — project `meridian`, URL `https://meridian-blush-iota.vercel.app`, `NEXT_PUBLIC_AGENT_MODE=live` + DB/Trigger/Anthropic env set; homepage + live chat smoke OK. Teammate URL superseded.
 3. [ ] **Record demo video** — open on live product (`https://meridian-blush-iota.vercel.app`), ≤5 min, land three wow moments
 4. [ ] **Hackathon submission form** — morning July 23 preferred (deadline midnight AoE July 23)
@@ -313,7 +326,7 @@ Repo is already **public**. Do not change scoring code unless user asks.
 - **Vercel Production (Sparsh):** `sparshgarg98-2119s-projects/meridian` → `https://meridian-blush-iota.vercel.app` (`NEXT_PUBLIC_AGENT_MODE=live`, smoke OK 2026-07-21)
 - Postgres: 123 accounts / 956 tickets / 63 transcripts / 14 deals (11 lost) — re-counted live
 - ClickHouse: **1,802 mentions** (dunning 582) — re-counted live; ~97% source coverage after backfill (a few leftover sources without mentions are expected)
-- Trigger.dev: **v4.5.5**; Cloud deploy **`20260721.2`** ✅; production stream smoke confirmed 2 initial modules plus fresh typed deep dives
+- Trigger.dev: **v4.5.5**; Cloud deploy **`20260721.3`** ✅; includes hybrid `chat.agent()` data chat, safe typed tools, and scripted main/deep-dive flows
 - Scoring: **`build_next ≥53`** (commit `fd71349`) — usage #1 build_now / multi #2 build_next / dunning deprioritize / LATAM deprioritize
 - Agent E2E passed (`scripts/e2e-live-stream.ts`); Trigger path preferred, in-process fallback remains
 - A4 sync + architecture docs on main; A5 LICENSE/README/SUBMISSION on main

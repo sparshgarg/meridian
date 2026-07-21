@@ -44,7 +44,8 @@ export type FlowKind =
   | 'competitive'
   | 'usage_evidence'
   | 'multi_entity'
-  | 'impact_details';
+  | 'impact_details'
+  | 'general';
 
 const actionFlow: Record<DeepDiveId, FlowKind> = {
   why_usage: 'usage_evidence',
@@ -56,13 +57,14 @@ const actionFlow: Record<DeepDiveId, FlowKind> = {
 
 export const pickFlowKind = (prompt: string, actionId?: DeepDiveId): FlowKind => {
   if (actionId) return actionFlow[actionId];
-  const p = prompt.toLowerCase();
-  if (/(dunning|email|loud|volume|most requested|top request)/.test(p)) return 'dunning';
-  if (/(compet|stripe|adyen|metronome|orb|chargebee|zuora|braintree|market|gap)/.test(p)) {
-    return 'competitive';
-  }
-  if (/(multi.entity|consolidated invoic|hidden gem)/.test(p)) return 'multi_entity';
-  if (/(impact assumption|impact detail|how.*impact|calculation)/.test(p)) return 'impact_details';
-  if (/(usage|evidence|proof|source|impact|revenue|arr|why)/.test(p)) return 'usage_evidence';
-  return 'prioritize';
+  return isPrioritizePrompt(prompt) ? 'prioritize' : 'general';
+};
+
+export const isPrioritizePrompt = (prompt: string): boolean => {
+  const normalized = prompt.trim().toLowerCase().replace(/[?.!]+$/, '');
+  return [
+    'what should we prioritize next quarter',
+    'what should we prioritize',
+    'what should the billing team prioritize next quarter',
+  ].includes(normalized);
 };

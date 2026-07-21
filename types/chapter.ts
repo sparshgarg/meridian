@@ -1,5 +1,6 @@
 import type {
   GetCompetitivePositionOutput,
+  GetAccountSignalsOutput,
   GetImpactProjectionOutput,
   GetThemeEvidenceOutput,
   ListOpportunitiesOutput,
@@ -82,6 +83,7 @@ export type ChapterVisual =
   | { type: 'competitor_matrix'; data: GetCompetitivePositionOutput }
   | { type: 'impact_waterfall'; data: GetImpactProjectionOutput }
   | { type: 'impact_breakdown'; data: GetImpactProjectionOutput }
+  | { type: 'account_snapshot'; data: GetAccountSignalsOutput }
   | { type: 'trend_lines'; data: { series: TrendSeries[] } };
 
 export type VisualType = ChapterVisual['type'];
