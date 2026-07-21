@@ -27,11 +27,13 @@ const headlineFromModel = (text: string): string => {
     .split('\n')
     .map((line) => line.trim())
     .find(Boolean);
-  return (firstLine ?? 'Analysis complete.')
+  const cleaned = (firstLine ?? 'Analysis complete.')
     .replace(/^[#>*\s]+/, '')
     .replace(/\*\*/g, '')
-    .replace(/`/g, '')
-    .slice(0, 240);
+    .replace(/`/g, '');
+  if (cleaned.length <= 220) return cleaned;
+  const shortened = cleaned.slice(0, 217);
+  return `${shortened.slice(0, shortened.lastIndexOf(' '))}…`;
 };
 
 const pipeChapterFlow = async (body: ChatRequest): Promise<string> => {
