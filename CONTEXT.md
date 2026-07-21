@@ -115,9 +115,10 @@ Three are **frontend-shaped** — transforms in `lib/queries/transforms.ts` (`to
 - Live path ready: `route.ts` → `createAgentStream` when `NEXT_PUBLIC_AGENT_MODE=live` (defaults to `mock` if unset).
 - Transforms: `lib/queries/transforms.ts`.
 
-### Environment (DONE locally; Vercel live flip = teammate)
+### Environment (DONE locally + Sparsh Vercel Production)
 - `.env.local` has ClickHouse, Postgres (ClickHouse-managed), multi-provider LLM keys, and `NEXT_PUBLIC_AGENT_MODE=live` locally.
-- **Vercel is on the teammate's account** — they must set Production env vars + Redeploy (Sparsh cannot). ClickHouse ping OK from local.
+- **Vercel Production is on Sparsh's account** — project `meridian` under `sparshgarg98-2119s-projects`. Production URL: `https://meridian-blush-iota.vercel.app`. Production env vars set (including `NEXT_PUBLIC_AGENT_MODE=live`) and deployed 2026-07-21. Homepage 200 + live `/api/chat` NDJSON smoke OK.
+- **Superseded:** teammate URL `https://meridian-mu-beryl.vercel.app` is no longer the deployment target — use Sparsh's Production URL above.
 - Trigger Cloud env must also have DB + `ANTHROPIC_API_KEY` (Sparsh / Trigger dashboard).
 - Multi-provider generation/extraction wiring done (Anthropic used for full seed; Groq/others available).
 
@@ -197,12 +198,12 @@ Three are **frontend-shaped** — transforms in `lib/queries/transforms.ts` (`to
 4. [x] MIT `LICENSE`; `README.md` rewritten (was 2-line placeholder)
 5. [x] Repo is **public** on GitHub (`sparshgarg/meridian`)
 6. [ ] Hackathon submission form — user
-7. [ ] Flip `NEXT_PUBLIC_AGENT_MODE=live` on **Vercel** (teammate-owned project) + confirm local already `live` for recording
+7. [x] Flip `NEXT_PUBLIC_AGENT_MODE=live` on **Vercel** (Sparsh-owned project `meridian` → `https://meridian-blush-iota.vercel.app`) + Production env + `--prod` deploy verified 2026-07-21
 
 **Process rule (ongoing):** Keep updating this CONTEXT.md after each verified milestone and commit it with related work — do not let it drift.
 
 **Hosting ownership (important):**
-- **Vercel project is on the teammate's account** (production URL: `https://meridian-mu-beryl.vercel.app`). Sparsh (repo owner) cannot flip Production env vars there — teammate must set them.
+- **Vercel Production is on Sparsh's account** (`sparshgarg98-2119s-projects/meridian`) — production URL: `https://meridian-blush-iota.vercel.app`. Linked to `https://github.com/sparshgarg/meridian`. Teammate URL `https://meridian-mu-beryl.vercel.app` is superseded.
 - **Trigger.dev Cloud** is on Sparsh's account (`proj_itrmpnqxuhbpcqlwtorl`). Sparsh owns Trigger deploy + Trigger dashboard env.
 
 ---
@@ -232,14 +233,14 @@ Plus bonus category: best OLTP+OLAP integration (€1000).
 
 ---
 
-## 9. WHAT'S LEFT (updated 2026-07-21 — post Trigger Cloud deploy)
+## 9. WHAT'S LEFT (updated 2026-07-21 — Sparsh Vercel Production live)
 
-Phases A1–A4 + live extraction + agent E2E + **Trigger Cloud deploy** are **done**. Remaining = Vercel live flip + demo + form.
+Phases A1–A4 + live extraction + agent E2E + Trigger Cloud deploy + **Sparsh Vercel Production** are **done**. Remaining = demo video + form.
 
 ### Must do before submit
 1. [x] **Trigger Cloud deploy** — version `20260721.1` live; cloud stream verify OK
-2. [ ] **Teammate: set Vercel env → live** — especially `NEXT_PUBLIC_AGENT_MODE=live`, then **Redeploy Production** (Vercel is teammate-owned; Sparsh cannot do this)
-3. [ ] **Record demo video** — open on live product (`https://meridian-mu-beryl.vercel.app`), ≤5 min, land three wow moments
+2. [x] **Vercel Production on Sparsh's account** — project `meridian`, URL `https://meridian-blush-iota.vercel.app`, `NEXT_PUBLIC_AGENT_MODE=live` + DB/Trigger/Anthropic env set; homepage + live chat smoke OK. Teammate URL superseded.
+3. [ ] **Record demo video** — open on live product (`https://meridian-blush-iota.vercel.app`), ≤5 min, land three wow moments
 4. [ ] **Hackathon submission form** — morning July 23 preferred (deadline midnight AoE July 23)
 
 ### Optional / nice-to-have (not blocking demo narrative)
@@ -251,8 +252,8 @@ Repo is already **public**. Do not change scoring code unless user asks.
 
 ## 10. OWNERSHIP & STATUS (updated 2026-07-21)
 
-- **Sparsh (repo / Trigger / data):** Trigger Cloud deploy ✅; Trigger dashboard env; local `.env.local`; demo video + hackathon form (or share with teammate).
-- **Teammate (Vercel account):** Production project at `https://meridian-mu-beryl.vercel.app` — must add/update env vars and Redeploy so `NEXT_PUBLIC_AGENT_MODE=live` is baked into the build.
+- **Sparsh (repo / Trigger / Vercel / data):** Trigger Cloud deploy ✅; Vercel Production ✅ (`https://meridian-blush-iota.vercel.app`); Trigger dashboard env; local `.env.local`; demo video + hackathon form (or share with teammate).
+- **Teammate:** former Vercel URL `https://meridian-mu-beryl.vercel.app` is **superseded** — do not use for demo/submit.
 
 **Keep CONTEXT.md updated after every verified milestone** (process rule going forward).
 
@@ -263,7 +264,7 @@ Repo is already **public**. Do not change scoring code unless user asks.
 - Scoring: **`build_next ≥53`** (commit `fd71349`) — usage #1 build_now / multi #2 build_next / dunning deprioritize
 - Agent E2E passed (`scripts/e2e-live-stream.ts`); Trigger path preferred, in-process fallback remains
 - A4 sync + architecture docs on main; A5 LICENSE/README/SUBMISSION on main
-- **Vercel owned by teammate** — live flip is their action item
+- **Vercel Production (Sparsh):** `sparshgarg98-2119s-projects/meridian` → `https://meridian-blush-iota.vercel.app` (live mode smoke OK 2026-07-21)
 
 ### Recent commits on main
 - `9ab9f37` — Trigger v4 + extraction smoke
