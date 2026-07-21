@@ -3,22 +3,27 @@ import { google } from '@ai-sdk/google';
 import { anthropic } from '@ai-sdk/anthropic';
 import { xai } from '@ai-sdk/xai';
 import { groq } from '@ai-sdk/groq';
+import { cerebras } from '@ai-sdk/cerebras';
 import type { LanguageModel } from 'ai';
 
 // Provider/model selection from env (GEN_PROVIDER + GEN_MODEL). Each provider
 // reads its own key from env automatically: ANTHROPIC_API_KEY,
-// GOOGLE_GENERATIVE_AI_API_KEY, OPENAI_API_KEY, XAI_API_KEY, GROQ_API_KEY.
+// GOOGLE_GENERATIVE_AI_API_KEY, OPENAI_API_KEY, XAI_API_KEY, GROQ_API_KEY,
+// CEREBRAS_API_KEY.
 // Provider history on 2026-07-20: Anthropic ran out of credit balance 76%
 // through the real run; xAI's team account hit its credit/spending limit on
-// the very first dry-run call. Groq added as the next fallback — verify the
-// default model with a live call before running anything larger, since exact
-// current model availability isn't guaranteed by this file.
+// the very first dry-run call; Groq's structured-output-capable models
+// (openai/gpt-oss-*) cap at 200K tokens/day — about half what the full run
+// needs. Cerebras added next: 1M tokens/day is comfortable, but only 5
+// requests/minute — MUCH slower wall-clock (needs GEN_CONCURRENCY=1,
+// GEN_MIN_INTERVAL_MS>=12500 to stay under the cap; ~1033 calls ≈ 3.5-4hrs).
 const DEFAULT_MODELS: Record<string, string> = {
   anthropic: 'claude-haiku-4-5-20251001',
   google: 'gemini-2.5-flash',
   openai: 'gpt-4o-mini',
   xai: 'grok-3-mini',
   groq: 'openai/gpt-oss-120b', // llama-3.3-70b-versatile doesn't support Groq's json_schema structured-output mode generateObject needs
+  cerebras: 'gpt-oss-120b',
 };
 
 const getProvider = (): string => process.env.GEN_PROVIDER ?? 'google';
@@ -35,7 +40,10 @@ export const getModel = (): LanguageModel => {
   if (provider === 'openai') return openai(model);
   if (provider === 'xai') return xai(model);
   if (provider === 'groq') return groq(model);
-  throw new Error(`Unknown GEN_PROVIDER "${provider}" — use "anthropic", "google", "openai", "xai", or "groq"`);
+  if (provider === 'cerebras') return cerebras(model);
+  throw new Error(
+    `Unknown GEN_PROVIDER "${provider}" — use "anthropic", "google", "openai", "xai", "groq", or "cerebras"`,
+  );
 };
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
@@ -114,6 +122,8 @@ const RATES: Record<string, ModelRate> = {
   'gemini-2.5-flash-lite': { inputPerM: 0, outputPerM: 0 },
   'grok-3-mini': { inputPerM: 0.3, outputPerM: 0.5 },
   'openai/gpt-oss-120b': { inputPerM: 0.15, outputPerM: 0.75 },
+  // Free tier while under the 1M-token/day quota.
+  'gpt-oss-120b': { inputPerM: 0, outputPerM: 0 },
 };
 
 export class CostTracker {
