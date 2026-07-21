@@ -2,7 +2,7 @@
 
 **ClickHouse & Trigger.dev Virtual Summer Hackathon 2026**
 **Team of 2 · Person A (Saurav, backend/data/agent) + Person B (frontend/streaming)**
-**Repo:** github.com/sauravhippargi/meridian
+**Repo:** github.com/sparshgarg/meridian
 **Deadline:** submissions close midnight AoE, July 23, 2026
 
 This document is the single source of truth for where the project stands. Read it top to bottom before doing any work.
@@ -195,7 +195,7 @@ Three are **frontend-shaped** — transforms in `lib/queries/transforms.ts` (`to
 2. [x] `SUBMISSION.md` updated with real verified counts
 3. [ ] Demo video — **user records** (open on live product, max 5 min)
 4. [x] MIT `LICENSE`; `README.md` rewritten (was 2-line placeholder)
-5. [x] Repo is **public** on GitHub (`sauravhippargi/meridian`)
+5. [x] Repo is **public** on GitHub (`sparshgarg/meridian`)
 6. [ ] Hackathon submission form — user
 7. [ ] Flip `NEXT_PUBLIC_AGENT_MODE=live` on **Vercel** (teammate-owned project) + confirm local already `live` for recording
 
