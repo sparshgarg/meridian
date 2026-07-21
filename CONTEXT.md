@@ -20,8 +20,8 @@ The agent must correctly identify, from the seeded data:
 1. **Usage-based billing enhancements** — #1 recommendation (`build_now`). Enterprise ARR, competitive urgency (Metronome/Orb ahead), blocked deals.
 2. **Multi-entity consolidated invoicing** — #2 hidden gem (`build_next`). Small footprint but top-15 enterprise accounts, greenfield (no competitor has it).
 3. **Dunning email customization** — correctly **deprioritized** despite highest raw ticket volume (mostly SMB accounts, no enterprise deals blocked). This is the "volume trap."
-4. **LATAM tax handling** — `watch` (Q1, growing but not urgent).
-5. Hybrid RevRec, webhook reliability, Salesforce sync, custom invoice PDFs — backlog.
+4. **LATAM tax handling** — originally framed as `watch` (Q1); **live data lands `deprioritize`** (signal 23 < 35 threshold). Not a bug — left untuned. Webhook reliability is the live `watch` (#3).
+5. Hybrid RevRec, Salesforce sync, custom invoice PDFs — backlog.
 
 ### Three "wow" moments the demo must land
 1. **Volume-trap detection** — dunning has the most tickets but the agent correctly does NOT rank it #1 (it's SMB-driven, low ARR).
@@ -34,7 +34,7 @@ The agent must correctly identify, from the seeded data:
 
 ### Data layer (OLTP + OLAP — targeting the €1000 bonus prize)
 - **Postgres (OLTP)** — mutable business records. Provisioned as a **ClickHouse-managed Postgres service** (not Neon — we switched to ClickHouse's managed Postgres so both databases live in one platform, which strengthens the OLTP+OLAP integration story). Holds: `accounts`, `deals`, `themes`, `competitors`, `raw_tickets`, `raw_transcripts`.
-- **ClickHouse (OLAP)** — analytical store. Holds: `mentions` (the big append-only table, ~5,000 rows after extraction), `theme_scores_daily` (materialized view). Every agent query is an aggregation over this.
+- **ClickHouse (OLAP)** — analytical store. Holds: `mentions` (the big append-only table, **1,802 rows** live — ~5k was an early aspirational estimate), `theme_scores_daily` (materialized view). Every agent query is an aggregation over this.
 
 **Why both:** Postgres answers "current state of this account/deal" (transactional lookups on mutable data); ClickHouse answers "across all signal, what matters most?" (analytical aggregation). The Phase A4 sync task propagates changed fields (e.g. account ARR) from Postgres → ClickHouse to keep aggregations current. This is the textbook OLTP+OLAP pattern the bonus prize rewards.
 
@@ -233,9 +233,42 @@ Plus bonus category: best OLTP+OLAP integration (€1000).
 
 ---
 
-## 9. WHAT'S LEFT (updated 2026-07-21 — Sparsh Vercel Production live)
+## 9. HOW TO VERIFY (manual test)
+
+**Production (use this):** https://meridian-blush-iota.vercel.app  
+(`NEXT_PUBLIC_AGENT_MODE=live` on Sparsh's Vercel). Repo: https://github.com/sparshgarg/meridian
+
+**Optional local:** copy `.env.example` → `.env.local`, set `NEXT_PUBLIC_AGENT_MODE=live` + DB/Trigger/Anthropic keys, then `npm run dev`.
+
+### Primary demo path
+1. Open Production URL above (ignore teammate URL `meridian-mu-beryl` — superseded).
+2. Type: **"what should we prioritize next quarter?"** (or click that suggestion).
+3. **Must see:**
+   - Chapters stream onto the canvas (not a wall of text); ~6 chapters end with a headline banner.
+   - Status ticker shows real tool/ClickHouse activity (row counts near **~1.8k mentions**, not mock "4,812").
+   - Opportunity ranking: **usage-based billing #1 `build_now`**, **multi-entity #2 `build_next`** (hidden gem).
+   - Volume trap chapter: dunning loud but **deprioritized**.
+   - Evidence/provenance cards with real quotes + source IDs (ticket/transcript/deal).
+   - LATAM may appear as **`deprioritize`** (signal 23) — expected; webhook is the live `watch`.
+4. **Ignore (not bugs):** optional other suggested prompts for the main demo; minor UI/chart polish; ~1,802 mentions vs old ~5k target; ~97% extraction coverage (a few sources may lack mentions after schema/TTL skips).
+5. **On LIVE URL, these ARE bugs:** mock-era canned numbers (4,812 mentions / 120 accounts / 200 deals), empty canvas, stuck spinner, ranking that puts dunning #1 or multi-entity off the podium, error stream events.
+6. **Secondary (optional):** "Should we build what customers ask for the most?" (volume trap focus); "Where are competitors beating us?"; "Show me the evidence for usage-based billing." Refresh/reload should return to empty workspace cleanly.
+7. **Demo video** records this same Production URL, ≤5 min, landing the three wow moments.
+
+## 10. WHAT'S LEFT (updated 2026-07-21 — Sparsh Vercel Production live)
 
 Phases A1–A4 + live extraction + agent E2E + Trigger Cloud deploy + **Sparsh Vercel Production** are **done**. Remaining = demo video + form.
+
+### Done vs left
+| Item | Status |
+| --- | --- |
+| Data pipeline + extraction (1,802 mentions) | ✅ Done |
+| Scoring + hybrid agent + E2E | ✅ Done |
+| Trigger Cloud deploy `20260721.1` | ✅ Done |
+| Vercel Production (Sparsh) live mode | ✅ Done |
+| Public GitHub `sparshgarg/meridian` | ✅ Done |
+| **Demo video** (≤5 min on live URL) | ❌ User records |
+| **Hackathon submission form** | ❌ User (deadline midnight AoE Jul 23) |
 
 ### Must do before submit
 1. [x] **Trigger Cloud deploy** — version `20260721.1` live; cloud stream verify OK
@@ -250,7 +283,7 @@ Phases A1–A4 + live extraction + agent E2E + Trigger Cloud deploy + **Sparsh V
 
 Repo is already **public**. Do not change scoring code unless user asks.
 
-## 10. OWNERSHIP & STATUS (updated 2026-07-21)
+## 11. OWNERSHIP & STATUS (updated 2026-07-21)
 
 - **Sparsh (repo / Trigger / Vercel / data):** Trigger Cloud deploy ✅; Vercel Production ✅ (`https://meridian-blush-iota.vercel.app`); Trigger dashboard env; local `.env.local`; demo video + hackathon form (or share with teammate).
 - **Teammate:** former Vercel URL `https://meridian-mu-beryl.vercel.app` is **superseded** — do not use for demo/submit.
@@ -258,18 +291,19 @@ Repo is already **public**. Do not change scoring code unless user asks.
 **Keep CONTEXT.md updated after every verified milestone** (process rule going forward).
 
 ### Verified facts
+- **GitHub:** https://github.com/sparshgarg/meridian (public)
+- **Vercel Production (Sparsh):** `sparshgarg98-2119s-projects/meridian` → `https://meridian-blush-iota.vercel.app` (`NEXT_PUBLIC_AGENT_MODE=live`, smoke OK 2026-07-21)
 - Postgres: 123 accounts / 956 tickets / 63 transcripts / 14 deals (11 lost) — re-counted live
-- ClickHouse: **1,802 mentions** (dunning 582) — re-counted live; ~97% source coverage after backfill
+- ClickHouse: **1,802 mentions** (dunning 582) — re-counted live; ~97% source coverage after backfill (a few leftover sources without mentions are expected)
 - Trigger.dev: **v4.5.5**; Cloud deploy **`20260721.1`** ✅; `stream-meridian-answer` cloud smoke OK (6 chapters)
-- Scoring: **`build_next ≥53`** (commit `fd71349`) — usage #1 build_now / multi #2 build_next / dunning deprioritize
+- Scoring: **`build_next ≥53`** (commit `fd71349`) — usage #1 build_now / multi #2 build_next / dunning deprioritize / LATAM deprioritize
 - Agent E2E passed (`scripts/e2e-live-stream.ts`); Trigger path preferred, in-process fallback remains
 - A4 sync + architecture docs on main; A5 LICENSE/README/SUBMISSION on main
-- **Vercel Production (Sparsh):** `sparshgarg98-2119s-projects/meridian` → `https://meridian-blush-iota.vercel.app` (live mode smoke OK 2026-07-21)
 
 ### Recent commits on main
-- `9ab9f37` — Trigger v4 + extraction smoke
+- `64094b6` — Document Sparsh Vercel Production URL after live deploy
+- `3bf4a50` — Point CONTEXT.md at sparshgarg/meridian GitHub repo
+- `ce38fd1` — Note successful Trigger Cloud deploy
 - `fd71349` — build_next ≥53 + agent stream
 - `9550c7d` — sync, architecture, LICENSE, SUBMISSION, E2E script
-- `b46430d` — CONTEXT.md A2–A5 progress sync
-- `1d15231` — CONTEXT.md verified counts + remaining work
 
