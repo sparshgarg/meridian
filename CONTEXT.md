@@ -221,6 +221,7 @@ This shows the derived tables under `meridian` and CDC replicas under `default`.
 ### Environment (DONE locally + Sparsh Vercel Production)
 - `.env.local` has ClickHouse, Postgres (ClickHouse-managed), multi-provider LLM keys, and `NEXT_PUBLIC_AGENT_MODE=live` locally.
 - **Vercel Production is on Sparsh's account** — project `meridian` under `sparshgarg98-2119s-projects`. Production URL: `https://meridian-blush-iota.vercel.app`. Production env vars set (including `NEXT_PUBLIC_AGENT_MODE=live`) and deployed 2026-07-21. Homepage 200 + live `/api/chat` NDJSON smoke OK.
+- **Landing first (2026-07-22):** root `/` serves the new dark landing page (`app/page.tsx`); the chat workspace lives at `/chat` (`app/chat/page.tsx`). CTA links to `/chat`. Alias `meridian-blush-iota.vercel.app` promoted to the landing-page production deploy.
 - **Superseded:** teammate URL `https://meridian-mu-beryl.vercel.app` is no longer the deployment target — use Sparsh's Production URL above.
 - Trigger Cloud env has DB + Azure OpenAI vars (`AZURE_OPENAI_*`, `AGENT_PROVIDER`) for live agent; legacy `ANTHROPIC_API_KEY` may remain for extraction/fallback.
 - Multi-provider generation/extraction wiring done (Anthropic used for full seed; Groq/others available; Azure optional via `EXTRACT_PROVIDER=azure`).
