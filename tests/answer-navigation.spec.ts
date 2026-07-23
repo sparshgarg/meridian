@@ -7,7 +7,7 @@ test('deep dives request fresh data and Back restores the parent', async ({ page
     if (request.method() === 'POST' && request.url().endsWith('/api/chat')) chatRequests += 1;
   });
 
-  await page.goto('/');
+  await page.goto('/chat');
   await page.getByRole('button', { name: 'What should we prioritize next quarter?' }).click();
   await expect(page.getByRole('button', { name: 'Query competitive positioning for the leading opportunities' })).toBeEnabled({
     timeout: 120_000,

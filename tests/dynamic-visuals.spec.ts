@@ -9,7 +9,7 @@ test('enterprise comparison renders semantic bars and inspectable activity', asy
     }
   });
 
-  await page.goto('/');
+  await page.goto('/chat');
   await page.getByRole('button', {
     name: 'Compare usage-based billing with dunning for enterprise accounts',
   }).click();
@@ -28,7 +28,7 @@ test('enterprise comparison renders semantic bars and inspectable activity', asy
 
 test('out-of-domain question renders an explicit boundary', async ({ page }) => {
   test.setTimeout(150_000);
-  await page.goto('/');
+  await page.goto('/chat');
   await page.getByPlaceholder('Ask about themes, accounts, competitors…').fill('What is the weather?');
   await page.getByRole('button', { name: 'Send' }).click();
 
