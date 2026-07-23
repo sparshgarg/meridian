@@ -7,7 +7,7 @@ test('continuous chat, follow-ups, start over, and PNG share', async ({ page }) 
   test.setTimeout(300_000);
   const downloadDir = fs.mkdtempSync(path.join(os.tmpdir(), 'meridian-share-'));
 
-  await page.goto('/');
+  await page.goto('/chat');
   await page.getByRole('button', { name: 'What should we prioritize next quarter?' }).click();
   await expect(page.getByRole('heading', { name: 'Q4 opportunity landscape' })).toBeVisible({
     timeout: 120_000,

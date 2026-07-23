@@ -17,7 +17,7 @@ test('processing is immediate and a stream failure is retryable', async ({ page 
     });
   });
 
-  await page.goto('/');
+  await page.goto('/chat');
   await page.getByPlaceholder('Ask about themes, accounts, competitors…').fill('Test failure');
   await page.getByRole('button', { name: 'Send' }).click();
 

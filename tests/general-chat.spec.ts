@@ -9,7 +9,7 @@ test('account question renders an account-specific live snapshot', async ({ page
     }
   });
 
-  await page.goto('/');
+  await page.goto('/chat');
   await page.getByRole('button', { name: 'What does Figma want?' }).click();
 
   await expect(page.getByRole('heading', { name: 'Account signal snapshot' })).toBeVisible({
