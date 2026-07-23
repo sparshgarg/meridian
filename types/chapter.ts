@@ -132,7 +132,13 @@ export type StreamEvent =
   | { type: 'chapter_callout'; chapter_id: string; callout: Callout }
   | { type: 'chapter_actions'; chapter_id: string; actions: VisualAction[] }
   | { type: 'no_data'; outcome: NoDataOutcome }
-  | { type: 'message_end'; message_id: string; headline: string }
+  | {
+      type: 'message_end';
+      message_id: string;
+      headline: string;
+      /** 3–5 clickable follow-up questions; client falls back if omitted */
+      suggested_followups?: string[];
+    }
   | { type: 'error'; message: string; code?: 'timeout' | 'network' | 'agent' | 'query'; retryable?: boolean };
 
 // Request body for POST /api/chat

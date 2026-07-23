@@ -86,7 +86,7 @@ export const ChapterCard = ({
       )}
 
       {chapter.visual ? (
-        <VisualRenderer visual={chapter.visual} />
+        <VisualRenderer visual={chapter.visual} title={chapter.title} />
       ) : (
         isStreaming && <div className="shimmer h-40 rounded-2xl" />
       )}

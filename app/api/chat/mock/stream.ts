@@ -53,5 +53,5 @@ export async function* mockEventStream(body: ChatRequest): AsyncGenerator<Stream
     await sleep(BETWEEN_STEPS_MS);
   }
 
-  yield { type: 'message_end', message_id: messageId, headline: scenario.headline };
+  yield { type: 'message_end', message_id: messageId, headline: scenario.headline, suggested_followups: scenario.suggested_followups };
 }

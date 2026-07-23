@@ -135,5 +135,12 @@ async function* runPrioritizeFlow(messageId: string): AsyncGenerator<StreamEvent
     type: 'message_end',
     message_id: messageId,
     headline: 'You should prioritize usage-based billing.',
+    suggested_followups: [
+      'Why shouldn’t we prioritize dunning email customization?',
+      'Tell me more about multi-entity consolidated invoicing',
+      'Where are competitors beating us on usage-based billing?',
+      'What does Figma want?',
+      'Which themes are growing fastest over the last 90 days?',
+    ],
   };
 }

@@ -59,6 +59,12 @@ async function* runUsageEvidence(messageId: string): AsyncGenerator<StreamEvent>
     type: 'message_end',
     message_id: messageId,
     headline: `Usage-based billing leads with signal ${usage?.signal_strength ?? '—'} and ${usage?.mention_counts.deal_losses ?? 0} blocked deals.`,
+    suggested_followups: [
+      'Where are competitors beating us on usage-based billing?',
+      'What is the ARR impact of usage-based billing?',
+      'What does Figma want?',
+      'Tell me more about multi-entity consolidated invoicing',
+    ],
   };
 }
 
@@ -92,6 +98,12 @@ async function* runDunning(messageId: string): AsyncGenerator<StreamEvent> {
     type: 'message_end',
     message_id: messageId,
     headline: `Dunning is loud but ranks ${dunning?.recommendation ?? 'deprioritize'}: ${dunning?.n_enterprise_accounts ?? 0} enterprise accounts and ${dunning?.mention_counts.deal_losses ?? 0} blocked deals.`,
+    suggested_followups: [
+      'Tell me more about multi-entity consolidated invoicing',
+      'What should we prioritize next quarter?',
+      'What does Figma want?',
+      'Which themes are growing fastest over the last 90 days?',
+    ],
   };
 }
 
@@ -116,6 +128,12 @@ async function* runMultiEntity(messageId: string): AsyncGenerator<StreamEvent> {
     type: 'message_end',
     message_id: messageId,
     headline: `Multi-entity is the #2 signal at ${multi?.signal_strength ?? '—'}: quiet demand, enterprise value, greenfield.`,
+    suggested_followups: [
+      'Are support tickets or interviews driving multi-entity demand?',
+      'Where are competitors beating us on usage-based billing?',
+      'What does Figma want?',
+      'What should we prioritize next quarter?',
+    ],
   };
 }
 
@@ -147,6 +165,12 @@ async function* runCompetitive(messageId: string): AsyncGenerator<StreamEvent> {
     type: 'message_end',
     message_id: messageId,
     headline: 'Usage-based is the exposed gap; multi-entity remains greenfield.',
+    suggested_followups: [
+      'What should we prioritize next quarter?',
+      'Tell me more about multi-entity consolidated invoicing',
+      'What does Figma want?',
+      'Which themes are growing fastest over the last 90 days?',
+    ],
   };
 }
 
@@ -171,5 +195,11 @@ async function* runImpactDetails(messageId: string): AsyncGenerator<StreamEvent>
     type: 'message_end',
     message_id: messageId,
     headline: `${usdCompact(impact.total)} traceable impact across ${impact.breakdown.length} account-level inputs.`,
+    suggested_followups: [
+      'Why shouldn’t we prioritize dunning email customization?',
+      'What does Figma want?',
+      'Where are competitors beating us on usage-based billing?',
+      'Which themes are growing fastest over the last 90 days?',
+    ],
   };
 }

@@ -137,9 +137,15 @@ const emitNoData = async (
   });
 };
 
+const followupsByMessage = new Map<string, string[]>();
+
+export const getSuggestedFollowups = (messageId: string): string[] =>
+  followupsByMessage.get(messageId) ?? [];
+
 export const createGeneralTools = (messageId: string) => {
   const emittedNoData = new Set<string>();
   let planned = false;
+  followupsByMessage.set(messageId, []);
   return ({
   plan_answer: tool({
     description:
@@ -162,6 +168,18 @@ export const createGeneralTools = (messageId: string) => {
         },
       });
       return plan;
+    },
+  }),
+  suggest_followups: tool({
+    description:
+      'Call near the end with 3–5 short follow-up questions the PM can ask next. Prefer concrete Meridian data questions (accounts, themes, competitors, segments, trends).',
+    inputSchema: z.object({
+      questions: z.array(z.string().min(8).max(140)).min(3).max(5),
+    }),
+    execute: async ({ questions }) => {
+      const next = questions.slice(0, 5);
+      followupsByMessage.set(messageId, next);
+      return { ok: true as const, count: next.length };
     },
   }),
   find_accounts: tool({

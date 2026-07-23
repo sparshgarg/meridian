@@ -35,6 +35,7 @@ export type ScriptStep = ScriptStatus | ScriptChapter;
 export interface Scenario {
   headline: string;
   steps: ScriptStep[];
+  suggested_followups?: string[];
 }
 
 const status = (label: string, detail: string): ScriptStatus => ({
@@ -53,6 +54,13 @@ const actions: VisualAction[] = [
 
 const prioritize: Scenario = {
   headline: 'You should prioritize usage-based billing.',
+  suggested_followups: [
+    'Why shouldn’t we prioritize dunning email customization?',
+    'Tell me more about multi-entity consolidated invoicing',
+    'Where are competitors beating us on usage-based billing?',
+    'What does Figma want?',
+    'Which themes are growing fastest over the last 90 days?',
+  ],
   steps: [
     status('Querying ClickHouse: rank opportunities', '1,802 mentions · 41ms'),
     {

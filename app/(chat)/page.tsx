@@ -16,6 +16,7 @@ export default function ChatPage(): JSX.Element {
     retryTurn,
     sendAction,
     setActiveTurn,
+    startOver,
     goBack,
     setScrollPosition,
     getScrollPosition,
@@ -35,6 +36,9 @@ export default function ChatPage(): JSX.Element {
         activeTurnId={activeTurnId}
         onSend={(content) => void sendMessage(content)}
         onSelectTurn={setActiveTurn}
+        onStartOver={() => {
+          startOver();
+        }}
       />
       <section className="min-w-0 flex-1 overflow-hidden rounded-3xl">
         <Canvas
@@ -42,6 +46,7 @@ export default function ChatPage(): JSX.Element {
           prompt={prompt}
           actionsDisabled={activeTurn?.role === 'assistant' && activeTurn.state === 'streaming'}
           onAction={(action) => void sendAction(action)}
+          onFollowUp={(content) => void sendMessage(content)}
           canGoBack={canGoBack}
           onBack={goBack}
           scrollTop={activeTurnId ? getScrollPosition(activeTurnId) : 0}

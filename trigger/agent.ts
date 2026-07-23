@@ -8,7 +8,11 @@ import {
   getAgentModel,
   getAgentModelStatusDetail,
 } from '@/lib/llm/agent-model';
-import { appendGeneralEvent, createGeneralTools } from './general-tools';
+import {
+  appendGeneralEvent,
+  createGeneralTools,
+  getSuggestedFollowups,
+} from './general-tools';
 import { chapterEvents } from './streams';
 
 export const statusEvent = (
@@ -97,6 +101,7 @@ Workflow for every novel question:
 4) For novel breakdowns, call aggregate_signals then render_dynamic_chart with a Zod DynamicChartSpec
    (constrained chart DSL: bar/grouped_bar/stacked_bar/horizontal_bar/line/area/scatter/kpi/table).
 5) If charting is inappropriate or validation would fail, call render_text_answer (short) or report_no_data.
+6) Call suggest_followups with 3–5 concrete next questions before finishing.
 
 Rules: Resolve customer names with find_accounts before get_account_signals. Preserve conversation context
 for follow-ups such as "enterprise only". For weather/general knowledge/out-of-domain, report_no_data with
@@ -109,6 +114,7 @@ salesforce_sync, custom_invoice_pdf.`,
       abortSignal: signal,
       stopWhen: stepCountIs(12),
       onFinish: async ({ text }) => {
+        const followups = getSuggestedFollowups(messageId);
         await appendGeneralEvent({
           type: 'status',
           status: {
@@ -123,6 +129,7 @@ salesforce_sync, custom_invoice_pdf.`,
           type: 'message_end',
           message_id: messageId,
           headline: headlineFromModel(text),
+          suggested_followups: followups.length > 0 ? followups : undefined,
         });
       },
     });

@@ -65,6 +65,12 @@ The agent must correctly identify, from the seeded data:
 - Scripted prioritize + typed deep dives remain the fast demo path (unchanged narrative).
 - Limitations: multi-series pivots still rely on the model filling `series_fields` correctly; exotic chart types (sankey, maps, nested treemaps) are not supported; free-form SQL is rejected by design.
 
+### Continuous chat + follow-ups + PNG share ✅ (2026-07-22)
+- **Continuous chat:** `use-chat` appends every user/assistant turn; prior answers are never wiped on a new send. Rail chips re-select any past answer on the canvas; canvas shows the selected/latest answer. Top-level questions clear the deep-dive Back stack; deep-dive Back still restores the parent within a branch.
+- **Follow-ups:** `message_end` may include `suggested_followups` (scripted prioritize/deep-dives emit them; Azure `chat.agent()` can call `suggest_followups`). Client `deriveFollowups()` falls back from visual types. Chips render under the completed canvas answer and above the composer.
+- **Start over:** Rail header **Start over** confirms, then resets `conversation_id`, turns, navigation, and scroll cache.
+- **Share as PNG:** Every visual is wrapped by `ShareableVisual` (`html-to-image`). Share button (`aria-label="Share chart as PNG"`) exports `meridian-<visual-type>-<timestamp>.png`, prefers Web Share when available, downloads otherwise; control is excluded from the capture via `data-export-ignore`.
+
 ---
 
 ## 3. THE STREAMEVENT CONTRACT (critical for Person A's agent work)
@@ -80,7 +86,7 @@ type StreamEvent =
   | { type: 'chapter_visual'; chapter_id: string; visual: ChapterVisual }
   | { type: 'chapter_callout'; chapter_id: string; callout: Callout }
   | { type: 'chapter_actions'; chapter_id: string; actions: VisualAction[] }
-  | { type: 'message_end'; message_id: string; headline: string }
+  | { type: 'message_end'; message_id: string; headline: string; suggested_followups?: string[] }
   | { type: 'error'; message: string };
 ```
 
@@ -355,8 +361,9 @@ Phases A1–A4 + live extraction + agent E2E + Trigger Cloud deploy + **Sparsh V
 | --- | --- |
 | Data pipeline + extraction (1,802 mentions) | ✅ Done |
 | Scoring + hybrid agent + E2E | ✅ Done |
-| Trigger Cloud deploy `20260723.2` (Azure + dynamic charts) | ✅ Done |
+| Trigger Cloud deploy `20260723.2` (Azure + dynamic charts) | ✅ Done → redeploy after continuous-chat/share |
 | Vercel Production (Sparsh) live mode | ✅ Done |
+| Continuous chat + follow-ups + Start over + PNG Share | ✅ Code complete 2026-07-22 |
 | Public GitHub `sparshgarg/meridian` | ✅ Done |
 | **Demo video** (≤5 min on live URL) | ❌ User records |
 | **Hackathon submission form** | ❌ User (deadline midnight AoE Jul 23) |

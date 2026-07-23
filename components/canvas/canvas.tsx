@@ -4,6 +4,8 @@ import { useEffect, useLayoutEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, RotateCcw, Sparkle } from 'lucide-react';
 import type { AssistantTurn } from '@/components/chat/use-chat';
+import { deriveFollowups } from '@/components/chat/derive-followups';
+import { FollowUpSuggestions } from '@/components/chat/follow-up-suggestions';
 import type { VisualAction } from '@/types/chapter';
 import { ChapterCard } from './chapter-card';
 import { EmptyState } from './empty-state';
@@ -14,6 +16,7 @@ interface CanvasProps {
   prompt: string | null; // the user question this answer responds to
   actionsDisabled: boolean;
   onAction: (action: VisualAction) => void;
+  onFollowUp: (prompt: string) => void;
   canGoBack: boolean;
   onBack: () => void;
   scrollTop: number;
@@ -29,6 +32,7 @@ export const Canvas = ({
   prompt,
   actionsDisabled,
   onAction,
+  onFollowUp,
   canGoBack,
   onBack,
   scrollTop,
@@ -41,6 +45,8 @@ export const Canvas = ({
   const previousFocusRestoreKey = useRef(focusRestoreKey);
   const chapterCount = turn?.chapters.length ?? 0;
   const lastChapter = turn?.chapters[chapterCount - 1];
+  const followups =
+    turn?.state === 'done' ? deriveFollowups(turn) : [];
 
   useLayoutEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollTop });
@@ -133,6 +139,16 @@ export const Canvas = ({
                 Retry question
               </button>
             )}
+          </div>
+        )}
+
+        {followups.length > 0 && (
+          <div className="rounded-2xl border border-line bg-card-strong p-4 shadow-depth-4">
+            <FollowUpSuggestions
+              suggestions={followups}
+              onPick={onFollowUp}
+              disabled={actionsDisabled}
+            />
           </div>
         )}
       </div>

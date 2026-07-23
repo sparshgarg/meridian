@@ -21,6 +21,7 @@ export interface AssistantTurn {
   statuses: StatusUpdate[];
   chapters: Chapter[];
   headline?: string;
+  suggested_followups?: string[];
   error?: string;
   retryable?: boolean;
 }
@@ -91,7 +92,12 @@ const applyEvent = (turn: AssistantTurn, event: StreamEvent): AssistantTurn => {
     case 'no_data':
       return turn;
     case 'message_end':
-      return { ...turn, state: 'done', headline: event.headline };
+      return {
+        ...turn,
+        state: 'done',
+        headline: event.headline,
+        suggested_followups: event.suggested_followups,
+      };
     case 'error':
       return { ...turn, state: 'error', error: event.message, retryable: event.retryable ?? true };
     default:
@@ -108,14 +114,16 @@ const mapChapter = (
   chapters: turn.chapters.map((c) => (c.id === chapterId ? fn(c) : c)),
 });
 
+const emptyState = (): ChatState => ({
+  turns: [],
+  isStreaming: false,
+  activeTurnId: null,
+  navigation: { stack: [] },
+  focusRestoreKey: 0,
+});
+
 export const useChat = () => {
-  const [state, setState] = useState<ChatState>({
-    turns: [],
-    isStreaming: false,
-    activeTurnId: null,
-    navigation: { stack: [] },
-    focusRestoreKey: 0,
-  });
+  const [state, setState] = useState<ChatState>(emptyState);
   const stateRef = useRef(state);
   stateRef.current = state;
   const conversationId = useRef(`conv_${Date.now().toString(36)}`);
@@ -147,6 +155,22 @@ export const useChat = () => {
     setState((s) => ({ ...s, activeTurnId: id }));
   }, []);
 
+  const startOver = useCallback((): boolean => {
+    if (stateRef.current.isStreaming) {
+      const confirmed = window.confirm(
+        'An answer is still streaming. Start a new chat and discard this conversation?',
+      );
+      if (!confirmed) return false;
+    } else if (stateRef.current.turns.length > 0) {
+      const confirmed = window.confirm('Start a new chat? This clears the conversation and canvas.');
+      if (!confirmed) return false;
+    }
+    conversationId.current = `conv_${Date.now().toString(36)}`;
+    scrollPositions.current.clear();
+    setState(emptyState());
+    return true;
+  }, []);
+
   const submit = useCallback(async (
     content: string,
     action?: VisualAction,
@@ -172,6 +196,7 @@ export const useChat = () => {
       ? { turnId: parentTurnId, scrollTop: scrollPositions.current.get(parentTurnId) ?? 0 }
       : null;
 
+    // Full prior turns so follow-ups like "enterprise only" keep context.
     const history: ChatRequest['messages'] = [
       ...stateRef.current.turns.map((turn) => ({
         role: turn.role,
@@ -180,10 +205,14 @@ export const useChat = () => {
       { role: 'user', content },
     ];
     setState((current) => ({
+      // Append — never wipe prior Q&A on a new send.
       turns: [...current.turns, userTurn, assistantTurn],
       isStreaming: true,
       activeTurnId: assistantId,
-      navigation: parentEntry ? pushAnswer(current.navigation, parentEntry) : current.navigation,
+      // Deep dives push Back stack; top-level questions start a fresh branch.
+      navigation: parentEntry
+        ? pushAnswer(current.navigation, parentEntry)
+        : { stack: [] },
       focusRestoreKey: current.focusRestoreKey,
     }));
     if (parentEntry) {
@@ -287,13 +316,20 @@ export const useChat = () => {
     restorePreviousAnswer();
   }, [restorePreviousAnswer]);
 
+  const latestAssistantId = [...state.turns]
+    .reverse()
+    .find((turn): turn is AssistantTurn => turn.role === 'assistant')?.id ?? null;
+
   return {
     ...state,
-    canGoBack: state.navigation.stack.length > 0,
+    // Back only while viewing the tip of a deep-dive branch (not a past rail chip).
+    canGoBack:
+      state.navigation.stack.length > 0 && state.activeTurnId === latestAssistantId,
     sendMessage,
     retryTurn,
     sendAction,
     setActiveTurn,
+    startOver,
     goBack,
     setScrollPosition,
     getScrollPosition,

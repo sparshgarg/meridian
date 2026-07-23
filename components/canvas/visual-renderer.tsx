@@ -13,12 +13,10 @@ import { ComparisonBars } from '@/components/charts/comparison-bars';
 import { SourceMix } from '@/components/charts/source-mix';
 import { DynamicChart } from '@/components/charts/dynamic-chart';
 import { TextFallbackCard } from '@/components/charts/text-fallback';
+import { ShareableVisual } from '@/components/charts/shareable-visual';
 import { NoDataState } from './no-data-state';
 
-// The one switch that maps the streaming contract onto chart components.
-// Adding a visual = add a member to ChapterVisual in /types/chapter.ts,
-// build the component, add a case here.
-export const VisualRenderer = ({ visual }: { visual: ChapterVisual }): JSX.Element => {
+const renderVisual = (visual: ChapterVisual): JSX.Element => {
   switch (visual.type) {
     case 'stat_row':
       return <StatRow stats={visual.data.stats} />;
@@ -50,3 +48,17 @@ export const VisualRenderer = ({ visual }: { visual: ChapterVisual }): JSX.Eleme
       return <NoDataState outcome={visual.data} />;
   }
 };
+
+// The one switch that maps the streaming contract onto chart components.
+// ShareableVisual wraps every type so PNG export is automatic.
+export const VisualRenderer = ({
+  visual,
+  title,
+}: {
+  visual: ChapterVisual;
+  title?: string;
+}): JSX.Element => (
+  <ShareableVisual visualType={visual.type} title={title}>
+    {renderVisual(visual)}
+  </ShareableVisual>
+);
