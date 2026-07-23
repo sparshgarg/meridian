@@ -2,7 +2,7 @@ import { tasks } from '@trigger.dev/sdk';
 import { AgentChat } from '@trigger.dev/sdk/chat';
 import type { ChatRequest, StreamEvent } from '@/types/chapter';
 import { runAgentFlow } from '@/lib/agent/prioritize-flow';
-import { isPrioritizePrompt } from '@/lib/agent/stream-helpers';
+import { isScriptedPrompt } from '@/lib/agent/stream-helpers';
 import { chapterEvents } from '@/trigger/streams';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -16,7 +16,7 @@ import { chapterEvents } from '@/trigger/streams';
 
 export async function* createAgentStream(body: ChatRequest): AsyncGenerator<StreamEvent> {
   const lastUser = [...body.messages].reverse().find((message) => message.role === 'user');
-  const scripted = Boolean(body.action) || isPrioritizePrompt(lastUser?.content ?? '');
+  const scripted = Boolean(body.action) || isScriptedPrompt(lastUser?.content ?? '');
   const gatewayMessageId = `gateway_${Date.now().toString(36)}`;
 
   yield { type: 'message_start', message_id: gatewayMessageId };

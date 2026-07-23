@@ -2,6 +2,7 @@ import type { ChatRequest, StreamEvent, VisualAction } from '@/types/chapter';
 import { getImpactProjection } from '@/lib/queries/impact-projection';
 import { listOpportunitiesRanked } from '@/lib/queries/opportunities-ranked';
 import { runDeepDiveFlow } from './deep-dive-flow';
+import { runTopAccountsFlow } from './top-accounts-flow';
 import { pickFlowKind, withCommas } from './stream-helpers';
 
 const WINDOW = 180;
@@ -51,6 +52,8 @@ export async function* runAgentFlow(body: ChatRequest): AsyncGenerator<StreamEve
   try {
     if (kind === 'prioritize') {
       yield* runPrioritizeFlow(messageId);
+    } else if (kind === 'top_customers') {
+      yield* runTopAccountsFlow(messageId);
     } else if (kind !== 'general') {
       yield* runDeepDiveFlow(kind, messageId);
     } else {

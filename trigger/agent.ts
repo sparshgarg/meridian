@@ -104,8 +104,9 @@ Workflow for every novel question:
 6) Call suggest_followups with 3–5 concrete next questions before finishing.
 
 Routing rules (critical):
-- "Top customers / biggest accounts / who are my customers and what do they want" → list_top_accounts
-  (ARR-ranked portfolio + each account's top themes). Default limit 5. Optional segment filter.
+- "Top customers / biggest accounts / who are my customers and what do they want" → ALWAYS call
+  list_top_accounts first (ARR-ranked portfolio + each account's top themes). Default limit 5.
+  Never say customer ARR ranking is unavailable — that tool exists and queries ClickHouse.
 - A named company ("What does Figma want?") → find_accounts with ONLY the company name token, then
   get_account_signals. Never pass the full user question into find_accounts.
 - Theme prioritization / ranking → list_opportunities_ranked (or compare_signals).

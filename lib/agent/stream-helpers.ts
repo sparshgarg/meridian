@@ -40,6 +40,7 @@ export async function* yieldStatus(
 
 export type FlowKind =
   | 'prioritize'
+  | 'top_customers'
   | 'dunning'
   | 'competitive'
   | 'usage_evidence'
@@ -57,7 +58,9 @@ const actionFlow: Record<DeepDiveId, FlowKind> = {
 
 export const pickFlowKind = (prompt: string, actionId?: DeepDiveId): FlowKind => {
   if (actionId) return actionFlow[actionId];
-  return isPrioritizePrompt(prompt) ? 'prioritize' : 'general';
+  if (isPrioritizePrompt(prompt)) return 'prioritize';
+  if (isTopCustomersPrompt(prompt)) return 'top_customers';
+  return 'general';
 };
 
 export const isPrioritizePrompt = (prompt: string): boolean => {
@@ -68,3 +71,28 @@ export const isPrioritizePrompt = (prompt: string): boolean => {
     'what should the billing team prioritize next quarter',
   ].includes(normalized);
 };
+
+/** Portfolio / ARR leaderboard questions — deterministic ClickHouse path. */
+export const isTopCustomersPrompt = (prompt: string): boolean => {
+  const normalized = prompt.trim().toLowerCase();
+  if (
+    /\b(top|biggest|largest|highest)\b/.test(normalized)
+    && /\b(customers?|accounts?|clients?)\b/.test(normalized)
+  ) {
+    return true;
+  }
+  if (
+    /\bwho are (my|our)\b/.test(normalized)
+    && /\b(customers?|accounts?)\b/.test(normalized)
+  ) {
+    return true;
+  }
+  if (/\bcustomer(?:s)? by arr\b/.test(normalized) || /\baccounts? by arr\b/.test(normalized)) {
+    return true;
+  }
+  return false;
+};
+
+/** Scripted flows that skip the LLM chat.agent path. */
+export const isScriptedPrompt = (prompt: string): boolean =>
+  isPrioritizePrompt(prompt) || isTopCustomersPrompt(prompt);

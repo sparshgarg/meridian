@@ -663,7 +663,7 @@ export const createGeneralTools = (messageId: string) => {
   }),
   render_text_answer: tool({
     description:
-      'Short text-only canvas answer when a chart is inappropriate or data cannot be visualized. Keep body under ~3 sentences.',
+      'Short text-only canvas answer ONLY when a chart is inappropriate after tools returned data, or when summarizing. NEVER claim a tool is missing — list_top_accounts ranks customers by ARR; find_accounts resolves named companies. Do not invent tool limitations.',
     inputSchema: TextFallbackSchema,
     execute: async (payload) => {
       const parsed = TextFallbackSchema.parse(payload);
