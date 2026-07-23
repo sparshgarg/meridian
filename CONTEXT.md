@@ -361,9 +361,9 @@ Phases A1–A4 + live extraction + agent E2E + Trigger Cloud deploy + **Sparsh V
 | --- | --- |
 | Data pipeline + extraction (1,802 mentions) | ✅ Done |
 | Scoring + hybrid agent + E2E | ✅ Done |
-| Trigger Cloud deploy `20260723.2` (Azure + dynamic charts) | ✅ Done → redeploy after continuous-chat/share |
-| Vercel Production (Sparsh) live mode | ✅ Done |
-| Continuous chat + follow-ups + Start over + PNG Share | ✅ Code complete 2026-07-22 |
+| Trigger Cloud deploy `20260723.6` (Azure + followups + continuous chat server) | ✅ Done |
+| Vercel Production (Sparsh) live mode | ✅ Done (`dpl_CnybV58hAQZMQzhb5KS3ySXgWRQp`) |
+| Continuous chat + follow-ups + Start over + PNG Share | ✅ Verified deploy 2026-07-22 |
 | Public GitHub `sparshgarg/meridian` | ✅ Done |
 | **Demo video** (≤5 min on live URL) | ❌ User records |
 | **Hackathon submission form** | ❌ User (deadline midnight AoE Jul 23) |
@@ -393,12 +393,15 @@ Repo is already **public**. Do not change scoring code unless user asks.
 - **Vercel Production (Sparsh):** `sparshgarg98-2119s-projects/meridian` → `https://meridian-blush-iota.vercel.app` (`NEXT_PUBLIC_AGENT_MODE=live`, Azure OpenAI agent 2026-07-22)
 - Postgres: 123 accounts / 956 tickets / 63 transcripts / 14 deals (11 lost) — re-counted live
 - ClickHouse: **1,802 mentions** (dunning 582) — re-counted live; ~97% source coverage after backfill (a few leftover sources without mentions are expected)
-- Trigger.dev: **v4.5.5**; Cloud deploy **`20260723.2`** ✅; Azure OpenAI (`gpt-5.4-mini`) primary for `chat.agent()`; dynamic chart DSL + allowlisted aggregates; hybrid data chat + scripted main/deep-dive flows
+- Trigger.dev: **v4.5.5**; Cloud deploy **`20260723.6`** ✅; Azure OpenAI (`gpt-5.4-mini`) primary for `chat.agent()`; dynamic chart DSL + allowlisted aggregates; hybrid data chat + scripted main/deep-dive flows; continuous-chat followups via `suggest_followups` / `message_end.suggested_followups`
 - Scoring: **`build_next ≥53`** (commit `fd71349`) — usage #1 build_now / multi #2 build_next / dunning deprioritize / LATAM deprioritize
 - Agent E2E passed (`scripts/e2e-live-stream.ts`); Trigger path preferred, in-process fallback remains
 - A4 sync + architecture docs on main; A5 LICENSE/README/SUBMISSION on main
+- Continuous chat + PNG share: commit `e2e6442`; Vercel `dpl_CnybV58hAQZMQzhb5KS3ySXgWRQp` → https://meridian-blush-iota.vercel.app
 
 ### Recent commits on main
+- `e2e6442` — Continuous chat, follow-ups, Start over, PNG share
+- `0c20d54` — Make Azure OpenAI primary and add dynamic chart DSL
 - `8708c62` — Progressive-disclosure recommendations with typed deep-dive requests
 - `64094b6` — Document Sparsh Vercel Production URL after live deploy
 - `3bf4a50` — Point CONTEXT.md at sparshgarg/meridian GitHub repo

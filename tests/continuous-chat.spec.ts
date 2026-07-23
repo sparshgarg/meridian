@@ -1,11 +1,11 @@
 import { expect, test } from '@playwright/test';
 import path from 'node:path';
 import fs from 'node:fs';
+import os from 'node:os';
 
 test('continuous chat, follow-ups, start over, and PNG share', async ({ page }) => {
-  test.setTimeout(240_000);
-  const downloadDir = path.join(process.cwd(), '.tmp-share-exports');
-  fs.mkdirSync(downloadDir, { recursive: true });
+  test.setTimeout(300_000);
+  const downloadDir = fs.mkdtempSync(path.join(os.tmpdir(), 'meridian-share-'));
 
   await page.goto('/');
   await page.getByRole('button', { name: 'What should we prioritize next quarter?' }).click();
@@ -18,7 +18,6 @@ test('continuous chat, follow-ups, start over, and PNG share', async ({ page }) 
   await expect(shareButtons.first()).toBeVisible();
   expect(await shareButtons.count()).toBeGreaterThanOrEqual(2);
 
-  // Export at least 3 visual PNGs (ranking + impact + one deep-dive).
   const exports: string[] = [];
   for (let i = 0; i < 2; i += 1) {
     const [download] = await Promise.all([
@@ -29,11 +28,14 @@ test('continuous chat, follow-ups, start over, and PNG share', async ({ page }) 
     await download.saveAs(target);
     exports.push(target);
     expect(fs.statSync(target).size).toBeGreaterThan(2_000);
+    expect(path.basename(target)).toMatch(/^meridian-(opportunity_ranking|impact_waterfall)-/);
   }
 
   await expect(page.getByText('Ask next').first()).toBeVisible();
   await page.getByRole('button', { name: 'What does Figma want?' }).first().click();
-  await expect(page.getByText(/Figma|account|signal/i).first()).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByRole('heading', { name: /Account signal snapshot|Figma/i })).toBeVisible({
+    timeout: 120_000,
+  });
 
   // Prioritize answer remains reachable via rail chip.
   await page.getByRole('button', { name: /You should prioritize usage-based billing/i }).click();
@@ -44,7 +46,6 @@ test('continuous chat, follow-ups, start over, and PNG share', async ({ page }) 
   await expect(page.getByRole('button', { name: 'What should we prioritize next quarter?' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Q4 opportunity landscape' })).toHaveCount(0);
 
-  // Re-run prioritize then deep-dive for a third PNG type.
   await page.getByRole('button', { name: 'What should we prioritize next quarter?' }).click();
   await expect(
     page.getByRole('button', { name: 'Query why dunning should not be prioritized' }),
@@ -60,6 +61,7 @@ test('continuous chat, follow-ups, start over, and PNG share', async ({ page }) 
   await dunningDownload.saveAs(dunningPath);
   exports.push(dunningPath);
   expect(fs.statSync(dunningPath).size).toBeGreaterThan(2_000);
+  expect(path.basename(dunningPath)).toMatch(/^meridian-volume_trap-/);
   expect(exports.length).toBe(3);
 
   await expect(page.getByRole('button', { name: 'Back to previous answer' })).toBeVisible();
