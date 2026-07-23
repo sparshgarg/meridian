@@ -80,6 +80,7 @@ The agent must correctly identify, from the seeded data:
   4. Agent system prompt routes portfolio questions → `list_top_accounts`; named companies only → `find_accounts` + `get_account_signals`.
 - Verified live data: Miro $1.1M, Airtable $950K, Zapier $820K, ClickUp $780K, Notion $720K with theme wants attached.
 - Deployed: Trigger **`20260723.10`**, commit **`fbaecdf`**, Vercel prod redeployed. Production smoke: “Who are my top customers and what do they want?” → `list_top_accounts` + `top_accounts` visual (no Account not found).
+- **Follow-up (same day):** Azure sometimes still invented a text fallback claiming “customer ARR isn’t available.” Fixed by routing top-customer prompts through a **deterministic** `runTopAccountsFlow` (same scripted path as prioritize) via `isTopCustomersPrompt` / `isScriptedPrompt`, so the LLM cannot skip the ClickHouse ARR leaderboard.
 
 ---
 
