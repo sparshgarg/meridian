@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 
 interface HeroSectionProps {
   monoClass: string;
@@ -34,7 +35,22 @@ export const HeroSection = ({ monoClass, interClass }: HeroSectionProps): JSX.El
       <p className={`${interClass} text-[17px] leading-relaxed text-[#9ab5ac] max-w-[620px] mt-5`}>
         Meridian reads all your customer feedback — support tickets, interviews, and sales deals — and tells you what to prioritize, with the evidence to back it up. No spreadsheets, no guessing.
       </p>
-      
+
+      <div className="flex flex-wrap items-center gap-4 mt-8">
+        <Link
+          href="/chat"
+          className={`${monoClass} inline-flex items-center bg-[#46C7B0] text-[#06100e] font-bold text-[14px] py-[14px] px-[26px] tracking-[0.04em] transition-all duration-150 hover:bg-[#5fe0c8] hover:shadow-[0_0_24px_rgba(70,199,176,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#46C7B0] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0F0E]`}
+        >
+          ▶ TRY MERIDIAN
+        </Link>
+        <Link
+          href="/chat"
+          className={`${monoClass} inline-flex items-center gap-2 text-[13px] tracking-[0.04em] text-[#7d9a92] border border-[#1c2c28] py-[13px] px-[20px] transition-colors duration-150 hover:text-[#EAF4F0] hover:border-[#46C7B0]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#46C7B0]`}
+        >
+          ask a question →
+        </Link>
+      </div>
+
       <div className={`${monoClass} grid grid-cols-2 min-[900px]:grid-cols-4 border border-[#1c2c28] mt-11`}>
         {/* Stat 1 */}
         <div className="p-[22px_20px] border-r border-[#1c2c28] border-b min-[900px]:border-b-0">

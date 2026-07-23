@@ -51,7 +51,12 @@ export const EvidenceCards = ({ data }: { data: GetThemeEvidenceOutput }): JSX.E
               <code className="text-[11px] text-ink-muted">{item.source_id}</code>
               <span className="ml-auto text-[11px] tabular-nums text-ink-muted">{item.event_date}</span>
             </div>
-            <p className="flex-1 text-sm leading-relaxed text-ink">“{item.verbatim_snippet}”</p>
+            <p
+              className="flex-1 line-clamp-3 text-sm leading-relaxed text-ink"
+              title={item.verbatim_snippet}
+            >
+              “{item.verbatim_snippet}”
+            </p>
             <div className="mt-3 flex items-center gap-2 border-t border-line pt-2.5 text-xs">
               <span className="font-semibold text-ink">{item.account_name}</span>
               <span className="rounded-full bg-black/[0.05] px-1.5 py-0.5 text-[10px] font-medium text-ink-secondary">
