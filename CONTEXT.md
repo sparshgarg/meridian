@@ -50,12 +50,20 @@ The agent must correctly identify, from the seeded data:
 - **The integration seam:** `createAgentStream(body: ChatRequest): AsyncGenerator<StreamEvent>` in `lib/agent-stream.ts` — **implemented** (Trigger `stream-meridian-answer` + in-process fallback). Person B owns NDJSON encoding (`app/api/chat/ndjson.ts`) + route wiring (`route.ts` branches on `NEXT_PUBLIC_AGENT_MODE`).
 - Reference for exact event ordering/pacing: `app/api/chat/mock/stream.ts` and `app/api/chat/mock/scenarios.ts`.
 
-### LLM provider: Google Gemini (free tier)
-- We switched from OpenAI to **Google Gemini** via `@ai-sdk/google` to use the free tier (no funded OpenAI key needed).
-- Free tier: Gemini 2.5 Flash = 1,500 requests/day, 15 RPM, 1M TPM. Flash-Lite = 30 RPM. Pro models are NOT free (moved to paid April 2026).
-- **Use Flash-Lite for generation, Flash for extraction and agent synthesis.**
-- **Critical constraint:** the 15 RPM limit means the generator's concurrency must be LOWERED (from 5 to ~2-3) with 429-retry backoff, or it will hit the rate wall mid-run. You effectively get ONE full generation run per day on the free tier — so get the dry-run right before the full run.
-- Env var: `GOOGLE_GENERATIVE_AI_API_KEY`.
+### LLM provider: Azure OpenAI (PRIMARY for live agent)
+- **Live `chat.agent()` synthesis uses Azure OpenAI** via `@ai-sdk/azure` (`createAzure` + `azure.chat(deployment)`), deployment `gpt-5.4-mini`.
+- Wiring: `lib/llm/azure.ts` + `lib/llm/agent-model.ts`; `trigger/agent.ts` calls `getAgentModel()` and emits a status detail like `Azure OpenAI · gpt-5.4-mini` (no secrets).
+- Env var **names** (values only in `.env.local` / Vercel / Trigger — never commit): `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_API_VERSION`, `AZURE_OPENAI_DEPLOYMENT`, optional `AGENT_PROVIDER=azure`.
+- `maxOutputTokens` is set on agent turns; AI SDK maps gpt-5.* to `max_completion_tokens`.
+- **Security note (2026-07-22):** an Azure API key was pasted in chat during setup — **rotate that key in Azure Portal** and update `.env.local` / Vercel / Trigger. Do not re-paste keys into chat or CONTEXT.md.
+- Extraction / seed generation remain on existing providers by default (`EXTRACT_PROVIDER` defaults to Anthropic; optional `EXTRACT_PROVIDER=azure`). Historical Gemini/Groq/Anthropic keys may still exist for bulk pipelines.
+
+### Dynamic chart codegen (Pattern A — constrained DSL, 2026-07-22)
+- General `chat.agent()` path: `plan_answer` → typed ClickHouse tools / `aggregate_signals` → `render_dynamic_chart` (or `render_text_answer` / `report_no_data`).
+- `DynamicChartSpec` in `types/dynamic-chart.ts` (Zod-validated). Marks: bar, grouped/stacked/horizontal bar, line, area, scatter, kpi, table. **No eval / no free JS** — frontend `DynamicChart` maps the DSL onto allowlisted Recharts/primitives.
+- `aggregate_signals` is an allowlisted aggregator (`group_by`: theme|segment|industry|source_type|week) over `meridian.mentions` + CDC replicas — no model-authored SQL.
+- Scripted prioritize + typed deep dives remain the fast demo path (unchanged narrative).
+- Limitations: multi-series pivots still rely on the model filling `series_fields` correctly; exotic chart types (sankey, maps, nested treemaps) are not supported; free-form SQL is rejected by design.
 
 ---
 
@@ -197,8 +205,8 @@ This shows the derived tables under `meridian` and CDC replicas under `default`.
 - `.env.local` has ClickHouse, Postgres (ClickHouse-managed), multi-provider LLM keys, and `NEXT_PUBLIC_AGENT_MODE=live` locally.
 - **Vercel Production is on Sparsh's account** — project `meridian` under `sparshgarg98-2119s-projects`. Production URL: `https://meridian-blush-iota.vercel.app`. Production env vars set (including `NEXT_PUBLIC_AGENT_MODE=live`) and deployed 2026-07-21. Homepage 200 + live `/api/chat` NDJSON smoke OK.
 - **Superseded:** teammate URL `https://meridian-mu-beryl.vercel.app` is no longer the deployment target — use Sparsh's Production URL above.
-- Trigger Cloud env must also have DB + `ANTHROPIC_API_KEY` (Sparsh / Trigger dashboard).
-- Multi-provider generation/extraction wiring done (Anthropic used for full seed; Groq/others available).
+- Trigger Cloud env has DB + Azure OpenAI vars (`AZURE_OPENAI_*`, `AGENT_PROVIDER`) for live agent; legacy `ANTHROPIC_API_KEY` may remain for extraction/fallback.
+- Multi-provider generation/extraction wiring done (Anthropic used for full seed; Groq/others available; Azure optional via `EXTRACT_PROVIDER=azure`).
 
 ### Seed artifacts (committed)
 - 123 accounts / 8 themes / 8 competitors / opportunity-truth with planted blocked deals.
@@ -347,15 +355,15 @@ Phases A1–A4 + live extraction + agent E2E + Trigger Cloud deploy + **Sparsh V
 | --- | --- |
 | Data pipeline + extraction (1,802 mentions) | ✅ Done |
 | Scoring + hybrid agent + E2E | ✅ Done |
-| Trigger Cloud deploy `20260721.6` | ✅ Done |
+| Trigger Cloud deploy `20260723.2` (Azure + dynamic charts) | ✅ Done |
 | Vercel Production (Sparsh) live mode | ✅ Done |
 | Public GitHub `sparshgarg/meridian` | ✅ Done |
 | **Demo video** (≤5 min on live URL) | ❌ User records |
 | **Hackathon submission form** | ❌ User (deadline midnight AoE Jul 23) |
 
 ### Must do before submit
-1. [x] **Trigger Cloud deploy** — version `20260721.6` live; hybrid data chat + progressive-disclosure stream verify OK
-2. [x] **Vercel Production on Sparsh's account** — project `meridian`, URL `https://meridian-blush-iota.vercel.app`, `NEXT_PUBLIC_AGENT_MODE=live` + DB/Trigger/Anthropic env set; homepage + live chat smoke OK. Teammate URL superseded.
+1. [x] **Trigger Cloud deploy** — version `20260723.2` live; Azure OpenAI primary for `meridian-chat`; plan→ClickHouse→dynamic chart DSL; hybrid data chat + progressive-disclosure OK
+2. [x] **Vercel Production on Sparsh's account** — project `meridian`, URL `https://meridian-blush-iota.vercel.app`, `NEXT_PUBLIC_AGENT_MODE=live` + DB/Trigger/`AZURE_OPENAI_*` env set; homepage + live chat smoke OK. Teammate URL superseded.
 3. [ ] **Record demo video** — open on live product (`https://meridian-blush-iota.vercel.app`), ≤5 min, land three wow moments
 4. [ ] **Hackathon submission form** — morning July 23 preferred (deadline midnight AoE July 23)
 
@@ -375,10 +383,10 @@ Repo is already **public**. Do not change scoring code unless user asks.
 
 ### Verified facts
 - **GitHub:** https://github.com/sparshgarg/meridian (public)
-- **Vercel Production (Sparsh):** `sparshgarg98-2119s-projects/meridian` → `https://meridian-blush-iota.vercel.app` (`NEXT_PUBLIC_AGENT_MODE=live`, smoke OK 2026-07-21)
+- **Vercel Production (Sparsh):** `sparshgarg98-2119s-projects/meridian` → `https://meridian-blush-iota.vercel.app` (`NEXT_PUBLIC_AGENT_MODE=live`, Azure OpenAI agent 2026-07-22)
 - Postgres: 123 accounts / 956 tickets / 63 transcripts / 14 deals (11 lost) — re-counted live
 - ClickHouse: **1,802 mentions** (dunning 582) — re-counted live; ~97% source coverage after backfill (a few leftover sources without mentions are expected)
-- Trigger.dev: **v4.5.5**; Cloud deploy **`20260721.6`** ✅; includes hybrid `chat.agent()` data chat, safe typed tools, and scripted main/deep-dive flows
+- Trigger.dev: **v4.5.5**; Cloud deploy **`20260723.2`** ✅; Azure OpenAI (`gpt-5.4-mini`) primary for `chat.agent()`; dynamic chart DSL + allowlisted aggregates; hybrid data chat + scripted main/deep-dive flows
 - Scoring: **`build_next ≥53`** (commit `fd71349`) — usage #1 build_now / multi #2 build_next / dunning deprioritize / LATAM deprioritize
 - Agent E2E passed (`scripts/e2e-live-stream.ts`); Trigger path preferred, in-process fallback remains
 - A4 sync + architecture docs on main; A5 LICENSE/README/SUBMISSION on main

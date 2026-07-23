@@ -11,6 +11,8 @@ import { VolumeTrap } from '@/components/charts/volume-trap';
 import { AccountSnapshot } from '@/components/charts/account-snapshot';
 import { ComparisonBars } from '@/components/charts/comparison-bars';
 import { SourceMix } from '@/components/charts/source-mix';
+import { DynamicChart } from '@/components/charts/dynamic-chart';
+import { TextFallbackCard } from '@/components/charts/text-fallback';
 import { NoDataState } from './no-data-state';
 
 // The one switch that maps the streaming contract onto chart components.
@@ -40,6 +42,10 @@ export const VisualRenderer = ({ visual }: { visual: ChapterVisual }): JSX.Eleme
       return <ComparisonBars data={visual.data} />;
     case 'source_mix':
       return <SourceMix data={visual.data} />;
+    case 'dynamic_chart':
+      return <DynamicChart data={visual.data} />;
+    case 'text_fallback':
+      return <TextFallbackCard data={visual.data} />;
     case 'no_data':
       return <NoDataState outcome={visual.data} />;
   }

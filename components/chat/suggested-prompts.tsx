@@ -21,7 +21,7 @@ const SUGGESTIONS = [
   },
   {
     icon: BarChart3,
-    label: 'Compare usage-based billing with dunning for enterprise accounts',
+    label: 'Break signal volume down by customer segment',
     tint: 'text-blue bg-blue-soft',
   },
   {
@@ -32,9 +32,10 @@ const SUGGESTIONS = [
 ];
 
 const MORE_SUGGESTIONS = [
+  'Compare usage-based billing with dunning for enterprise accounts',
+  'Show mention volume by industry for the last 90 days',
   'What do customers in healthcare want?',
   'Where are competitors beating us on usage-based billing?',
-  'Show evidence for multi-entity invoicing',
   'What is the ARR impact of usage-based billing?',
 ];
 

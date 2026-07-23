@@ -6,6 +6,7 @@ import type {
   GetThemeEvidenceOutput,
   ListOpportunitiesOutput,
 } from './agent-tools';
+import type { DynamicChartSpec, TextFallback } from './dynamic-chart';
 import type { ThemeId } from './theme';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -95,6 +96,8 @@ export type ChapterVisual =
   | { type: 'trend_lines'; data: { series: TrendSeries[] } }
   | { type: 'comparison_bars'; data: CompareSignalsOutput }
   | { type: 'source_mix'; data: CompareSignalsOutput }
+  | { type: 'dynamic_chart'; data: DynamicChartSpec }
+  | { type: 'text_fallback'; data: TextFallback }
   | { type: 'no_data'; data: NoDataOutcome };
 
 export type VisualType = ChapterVisual['type'];
@@ -117,7 +120,7 @@ export interface StatusUpdate {
   detail?: string; // e.g. "4,812 rows scanned in 38ms"
   state: 'running' | 'done' | 'error';
   source?: 'trigger' | 'clickhouse' | 'agent';
-  phase?: 'understanding' | 'querying' | 'analyzing' | 'complete';
+  phase?: 'understanding' | 'planning' | 'querying' | 'analyzing' | 'complete';
 }
 
 export type StreamEvent =

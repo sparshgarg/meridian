@@ -8,6 +8,11 @@ import { listOpportunitiesRanked } from '@/lib/queries/opportunities-ranked';
 import { getThemeTrends } from '@/lib/queries/signal-summary';
 import { getThemeEvidence } from '@/lib/queries/theme-evidence';
 import { compareSignals } from '@/lib/queries/signal-comparison';
+import {
+  AGG_DIMENSIONS,
+  AGG_METRICS,
+  aggregateSignals,
+} from '@/lib/queries/aggregate-signals';
 import { toTrendLines } from '@/lib/queries/transforms';
 import type {
   ChapterIcon,
@@ -17,6 +22,11 @@ import type {
   VisualAction,
 } from '@/types/chapter';
 import type { ThemeId } from '@/types/theme';
+import {
+  AnswerPlanSchema,
+  DynamicChartSpecSchema,
+  TextFallbackSchema,
+} from '@/types/dynamic-chart';
 import { chapterEvents } from './streams';
 
 export const appendGeneralEvent = async (event: StreamEvent): Promise<void> => {
@@ -129,7 +139,31 @@ const emitNoData = async (
 
 export const createGeneralTools = (messageId: string) => {
   const emittedNoData = new Set<string>();
+  let planned = false;
   return ({
+  plan_answer: tool({
+    description:
+      'ALWAYS call first for novel questions. Plan which ClickHouse sources/tools to use and which chart mark fits. Prefer existing typed visuals when they already match; otherwise plan aggregate_signals + render_dynamic_chart. Set fallback.text_only when a chart is inappropriate.',
+    inputSchema: AnswerPlanSchema,
+    execute: async (plan) => {
+      planned = true;
+      const statusId = `${messageId}_plan`;
+      await appendGeneralEvent({
+        type: 'status',
+        status: {
+          id: statusId,
+          label: 'Planning answer',
+          detail: plan.fallback.text_only
+            ? `Text fallback · ${plan.fallback.reason ?? 'chart not appropriate'}`
+            : `${plan.chart_plan.mark} · ${plan.data_plan.preferred_tools.join(', ')}`,
+          state: 'done',
+          source: 'agent',
+          phase: 'planning',
+        },
+      });
+      return plan;
+    },
+  }),
   find_accounts: tool({
     description:
       'Resolve an account or customer name from the ClickHouse CDC replica before requesting account signals.',
@@ -373,6 +407,214 @@ export const createGeneralTools = (messageId: string) => {
         });
       }
       return data;
+    },
+  }),
+  aggregate_signals: tool({
+    description:
+      'Flexible allowlisted ClickHouse aggregation for novel charts. group_by is one of theme|segment|industry|source_type|week. Returns rows the model must pass into render_dynamic_chart. Never invent numbers.',
+    inputSchema: z.object({
+      group_by: z.enum(AGG_DIMENSIONS),
+      metrics: z.array(z.enum(AGG_METRICS)).max(6).optional(),
+      theme_ids: z.array(z.string()).max(8).optional(),
+      segment: z.enum(['enterprise', 'mid_market', 'smb', 'all']).optional(),
+      industry: z.string().min(1).max(80).optional(),
+      source_type: z.enum(['ticket', 'transcript', 'deal_loss', 'all']).optional(),
+      time_window_days: z.number().int().min(7).max(365).optional(),
+      limit: z.number().int().min(1).max(40).optional(),
+    }),
+    execute: async (input) => {
+      const statusId = `${messageId}_aggregate`;
+      await appendGeneralEvent({
+        type: 'status',
+        status: {
+          id: statusId,
+          label: `Querying ClickHouse: aggregate by ${input.group_by}`,
+          state: 'running',
+          source: 'clickhouse',
+          phase: 'querying',
+        },
+      });
+      const started = Date.now();
+      try {
+        const data = await aggregateSignals({
+          ...input,
+          theme_ids: input.theme_ids as ThemeId[] | undefined,
+        });
+        await appendGeneralEvent({
+          type: 'status',
+          status: {
+            id: statusId,
+            label: `Querying ClickHouse: aggregate by ${input.group_by}`,
+            detail: `${data.rows.length} groups · ${data.total_mentions} mentions · ${Date.now() - started}ms`,
+            state: 'done',
+            source: 'clickhouse',
+            phase: 'querying',
+          },
+        });
+        if (data.rows.length === 0) {
+          await emitNoData(messageId, 'aggregate_empty', {
+            reason: 'known_no_evidence',
+            title: 'No matching evidence',
+            message: 'I couldn’t find aggregated signal for that filter in ClickHouse.',
+            suggestions: [
+              'Break signal volume down by customer segment',
+              'Compare usage-based billing with dunning for enterprise accounts',
+            ],
+          }, emittedNoData);
+        }
+        return data;
+      } catch (error) {
+        await appendGeneralEvent({
+          type: 'status',
+          status: {
+            id: statusId,
+            label: `Querying ClickHouse: aggregate by ${input.group_by}`,
+            detail: 'Query failed',
+            state: 'error',
+            source: 'clickhouse',
+            phase: 'querying',
+          },
+        });
+        throw error;
+      }
+    },
+  }),
+  render_dynamic_chart: tool({
+    description:
+      'Generate a canvas chart from a Zod-validated DynamicChartSpec (constrained DSL — not free JS). Call after aggregate_signals or after reshaping other tool rows. Include provenance from the query.',
+    inputSchema: DynamicChartSpecSchema,
+    execute: async (rawSpec) => {
+      const parsed = DynamicChartSpecSchema.safeParse(rawSpec);
+      const genId = `${messageId}_chartgen`;
+      await appendGeneralEvent({
+        type: 'status',
+        status: {
+          id: genId,
+          label: 'Generating chart',
+          state: 'running',
+          source: 'agent',
+          phase: 'analyzing',
+        },
+      });
+      if (!parsed.success) {
+        await appendGeneralEvent({
+          type: 'status',
+          status: {
+            id: genId,
+            label: 'Generating chart',
+            detail: 'Spec validation failed — using text fallback',
+            state: 'error',
+            source: 'agent',
+            phase: 'analyzing',
+          },
+        });
+        const fallback = {
+          title: 'Could not render chart',
+          body: 'The chart specification failed validation, so I’m answering in text instead of guessing a visual.',
+          bullets: parsed.error.issues.slice(0, 3).map((issue) => issue.message),
+        };
+        const chapterId = `${messageId}_text_fallback_chapter`;
+        await appendGeneralEvent({
+          type: 'chapter_start',
+          chapter_id: chapterId,
+          title: fallback.title,
+          icon: 'summary',
+        });
+        await appendGeneralEvent({
+          type: 'chapter_visual',
+          chapter_id: chapterId,
+          visual: { type: 'text_fallback', data: fallback },
+        });
+        return { ok: false as const, fallback };
+      }
+      const spec = parsed.data;
+      if (spec.data.length === 0) {
+        await appendGeneralEvent({
+          type: 'status',
+          status: {
+            id: genId,
+            label: 'Generating chart',
+            detail: 'Empty data — text fallback',
+            state: 'done',
+            source: 'agent',
+            phase: 'analyzing',
+          },
+        });
+        const fallback = {
+          title: 'No chartable rows',
+          body: 'ClickHouse returned no rows for that slice, so a chart would be misleading.',
+        };
+        const chapterId = `${messageId}_empty_chart_chapter`;
+        await appendGeneralEvent({
+          type: 'chapter_start',
+          chapter_id: chapterId,
+          title: fallback.title,
+          icon: 'summary',
+        });
+        await appendGeneralEvent({
+          type: 'chapter_visual',
+          chapter_id: chapterId,
+          visual: { type: 'text_fallback', data: fallback },
+        });
+        return { ok: false as const, fallback };
+      }
+      const chapterId = `${messageId}_dynamic_chapter`;
+      await appendGeneralEvent({
+        type: 'chapter_start',
+        chapter_id: chapterId,
+        title: spec.title,
+        icon: spec.mark === 'line' || spec.mark === 'area' ? 'trend' : 'ranking',
+      });
+      await appendGeneralEvent({
+        type: 'chapter_visual',
+        chapter_id: chapterId,
+        visual: { type: 'dynamic_chart', data: spec },
+      });
+      await appendGeneralEvent({
+        type: 'status',
+        status: {
+          id: genId,
+          label: 'Generating chart',
+          detail: `${spec.mark} · ${spec.data.length} rows`,
+          state: 'done',
+          source: 'agent',
+          phase: 'analyzing',
+        },
+      });
+      return { ok: true as const, mark: spec.mark, rows: spec.data.length, planned };
+    },
+  }),
+  render_text_answer: tool({
+    description:
+      'Short text-only canvas answer when a chart is inappropriate or data cannot be visualized. Keep body under ~3 sentences.',
+    inputSchema: TextFallbackSchema,
+    execute: async (payload) => {
+      const parsed = TextFallbackSchema.parse(payload);
+      const statusId = `${messageId}_text`;
+      await appendGeneralEvent({
+        type: 'status',
+        status: {
+          id: statusId,
+          label: 'Preparing text answer',
+          detail: planned ? 'Per plan fallback' : 'Chart not appropriate',
+          state: 'done',
+          source: 'agent',
+          phase: 'analyzing',
+        },
+      });
+      const chapterId = `${messageId}_text_chapter`;
+      await appendGeneralEvent({
+        type: 'chapter_start',
+        chapter_id: chapterId,
+        title: parsed.title,
+        icon: 'summary',
+      });
+      await appendGeneralEvent({
+        type: 'chapter_visual',
+        chapter_id: chapterId,
+        visual: { type: 'text_fallback', data: parsed },
+      });
+      return parsed;
     },
   }),
   report_no_data: tool({
