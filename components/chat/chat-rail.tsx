@@ -60,13 +60,20 @@ export const ChatRail = ({
   return (
     <aside className="flex h-full w-[390px] shrink-0 flex-col rounded-3xl bg-card-strong shadow-depth-16 ring-1 ring-black/[0.04]">
       <header className="flex items-center gap-2.5 border-b border-line px-5 py-4">
-        <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-br from-accent to-blue text-white shadow-depth-4">
-          <Compass className="h-5 w-5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="font-display text-base font-semibold tracking-tight text-ink">Meridian</p>
-          <p className="text-[11px] text-ink-muted">Product intelligence · Billing team</p>
-        </div>
+        <button
+          type="button"
+          onClick={onStartOver}
+          className="group flex min-w-0 flex-1 items-center gap-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 rounded-xl p-0.5 -m-0.5 transition-opacity hover:opacity-85"
+          title="Go to home screen"
+        >
+          <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-br from-accent to-blue text-white shadow-depth-4 transition-transform group-hover:scale-105">
+            <Compass className="h-5 w-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-base font-semibold tracking-tight text-ink group-hover:text-accent transition-colors">Meridian</p>
+            <p className="text-[11px] text-ink-muted">Product intelligence · Billing team</p>
+          </div>
+        </button>
         {turns.length > 0 && (
           <button
             type="button"
