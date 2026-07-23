@@ -71,6 +71,16 @@ The agent must correctly identify, from the seeded data:
 - **Start over:** Rail header **Start over** confirms, then resets `conversation_id`, turns, navigation, and scroll cache.
 - **Share as PNG:** Every visual is wrapped by `ShareableVisual` (`html-to-image`). Share button (`aria-label="Share chart as PNG"`) exports `meridian-<visual-type>-<timestamp>.png`, prefers Web Share when available, downloads otherwise; control is excluded from the capture via `data-export-ignore`.
 
+### Portfolio / top-customers routing ✅ (2026-07-22)
+- **Root cause of “Account not found” on questions like “Who are my top customers…”:** the agent was calling `find_accounts` (substring name search) with the full question or portfolio phrasing. Zero matches then emitted a hard `no_data` titled “Account not found.” There was no ARR portfolio tool.
+- **Fix:**
+  1. `list_top_accounts` ClickHouse query (`lib/queries/top-accounts.ts`) ranks accounts by ARR from `default.public_accounts` and attaches each account’s top themes from `mentions`.
+  2. New `top_accounts` visual (`components/charts/top-accounts.tsx`).
+  3. `find_accounts` rejects non-name queries via `looksLikeAccountNameQuery` (no false “Account not found”); only genuine short company-name misses emit that outcome.
+  4. Agent system prompt routes portfolio questions → `list_top_accounts`; named companies only → `find_accounts` + `get_account_signals`.
+- Verified live data: Miro $1.1M, Airtable $950K, Zapier $820K, ClickUp $780K, Notion $720K with theme wants attached.
+- Deployed: Trigger **`20260723.10`**, commit **`fbaecdf`**, Vercel prod redeployed. Production smoke: “Who are my top customers and what do they want?” → `list_top_accounts` + `top_accounts` visual (no Account not found).
+
 ---
 
 ## 3. THE STREAMEVENT CONTRACT (critical for Person A's agent work)
