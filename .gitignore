@@ -32,3 +32,4 @@ npm-debug.log*
 .trigger
 .vercel
 .env*
+.tmp-share-exports/
