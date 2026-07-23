@@ -96,19 +96,28 @@ export const meridianChat = chat.agent({
 Workflow for every novel question:
 1) Call plan_answer first (data sources + chart mark + whether text fallback is better).
 2) Fetch ClickHouse data with typed tools only — never invent numbers or free-form SQL.
-3) Prefer existing visuals (account_snapshot, trend_lines, comparison_bars, source_mix, opportunity_ranking,
-   evidence_cards, competitor_matrix, impact_waterfall) when they already fit.
+3) Prefer existing visuals (top_accounts, account_snapshot, trend_lines, comparison_bars, source_mix,
+   opportunity_ranking, evidence_cards, competitor_matrix, impact_waterfall) when they already fit.
 4) For novel breakdowns, call aggregate_signals then render_dynamic_chart with a Zod DynamicChartSpec
    (constrained chart DSL: bar/grouped_bar/stacked_bar/horizontal_bar/line/area/scatter/kpi/table).
 5) If charting is inappropriate or validation would fail, call render_text_answer (short) or report_no_data.
 6) Call suggest_followups with 3–5 concrete next questions before finishing.
 
-Rules: Resolve customer names with find_accounts before get_account_signals. Preserve conversation context
-for follow-ups such as "enterprise only". For weather/general knowledge/out-of-domain, report_no_data with
-reason unsupported. Never substitute global prioritization for unknown entities. Your final text must be
-one concise headline sentence — no markdown/tables/JSON. Theme ids: usage_based_billing,
-multi_entity_invoicing, dunning_customization, latam_tax, hybrid_revrec, webhook_reliability,
-salesforce_sync, custom_invoice_pdf.`,
+Routing rules (critical):
+- "Top customers / biggest accounts / who are my customers and what do they want" → list_top_accounts
+  (ARR-ranked portfolio + each account's top themes). Default limit 5. Optional segment filter.
+- A named company ("What does Figma want?") → find_accounts with ONLY the company name token, then
+  get_account_signals. Never pass the full user question into find_accounts.
+- Theme prioritization / ranking → list_opportunities_ranked (or compare_signals).
+- Trends → get_theme_trends. Competitors → get_competitive_position. Impact → get_impact_projection.
+- Weather / general knowledge / out-of-domain → report_no_data reason=unsupported.
+- Unknown company name after a proper find_accounts miss → report_no_data (or rely on tool no_data).
+- Never substitute global prioritization for unknown entities.
+- Preserve conversation context for follow-ups such as "enterprise only".
+
+Your final text must be one concise headline sentence — no markdown/tables/JSON. Theme ids:
+usage_based_billing, multi_entity_invoicing, dunning_customization, latam_tax, hybrid_revrec,
+webhook_reliability, salesforce_sync, custom_invoice_pdf.`,
       messages,
       tools,
       abortSignal: signal,

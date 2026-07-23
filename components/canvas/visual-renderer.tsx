@@ -9,6 +9,7 @@ import { StatRow } from '@/components/charts/stat-row';
 import { TrendLines } from '@/components/charts/trend-lines';
 import { VolumeTrap } from '@/components/charts/volume-trap';
 import { AccountSnapshot } from '@/components/charts/account-snapshot';
+import { TopAccounts } from '@/components/charts/top-accounts';
 import { ComparisonBars } from '@/components/charts/comparison-bars';
 import { SourceMix } from '@/components/charts/source-mix';
 import { DynamicChart } from '@/components/charts/dynamic-chart';
@@ -34,6 +35,8 @@ const renderVisual = (visual: ChapterVisual): JSX.Element => {
       return <ImpactWaterfall data={visual.data} showDetails />;
     case 'account_snapshot':
       return <AccountSnapshot data={visual.data} />;
+    case 'top_accounts':
+      return <TopAccounts data={visual.data} />;
     case 'trend_lines':
       return <TrendLines series={visual.data.series} />;
     case 'comparison_bars':

@@ -36,9 +36,38 @@ interface EvidenceRow {
   severity: number;
 }
 
+/** True for "Figma" / "Airtable"; false for "Who are my top customers…". */
+export const looksLikeAccountNameQuery = (query: string): boolean => {
+  const text = query.trim();
+  if (!text || text.length > 48) return false;
+  if (/[?]/.test(text)) return false;
+  if (/\s{2,}/.test(text)) return false;
+  if (
+    /\b(who|what|which|how|why|where|top|biggest|largest|customers?|accounts?|want|prioritize|compare|theme|segment|enterprise|dunning|billing)\b/i.test(
+      text,
+    )
+  ) {
+    return false;
+  }
+  // Company-ish: 1–4 tokens, mostly letters/numbers/&-./
+  const tokens = text.split(/\s+/);
+  if (tokens.length > 4) return false;
+  return /^[\p{L}\p{N}&.'’\-]+(?:\s+[\p{L}\p{N}&.'’\-]+)*$/u.test(text);
+};
+
 export const findAccounts = async (input: FindAccountsInput): Promise<FindAccountsOutput> => {
   const queryText = input.query.trim();
   if (!queryText) return { matches: [] };
+
+  // Portfolio / natural-language questions must not hit name search.
+  if (!looksLikeAccountNameQuery(queryText)) {
+    return {
+      matches: [],
+      rejected_as_name_lookup: true,
+      hint: 'This looks like a portfolio or analytical question, not a company name. Use list_top_accounts (ARR ranking + wants), list_opportunities_ranked, compare_signals, or aggregate_signals instead.',
+    };
+  }
+
   const limit = Math.min(Math.max(input.limit ?? 5, 1), 10);
   const { data } = await chQuery<AccountRow>(
     `SELECT id AS account_id, name AS account_name, industry, toFloat64(arr) AS arr, segment

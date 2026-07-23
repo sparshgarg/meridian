@@ -119,6 +119,47 @@ export interface FindAccountsInput {
 
 export interface FindAccountsOutput {
   matches: AccountSearchResult[];
+  /** Present when the query looks like a portfolio/question, not a company name. */
+  rejected_as_name_lookup?: boolean;
+  hint?: string;
+}
+
+export type AccountSegmentFilter = 'enterprise' | 'mid_market' | 'smb' | 'all';
+
+export interface ListTopAccountsInput {
+  limit?: number; // default 5, max 15
+  segment?: AccountSegmentFilter;
+  themes_per_account?: number; // default 3
+}
+
+export interface TopAccountTheme {
+  theme_id: ThemeId;
+  theme_name: string;
+  mention_count: number;
+}
+
+export interface TopAccountRow {
+  rank: number;
+  account_id: string;
+  account_name: string;
+  industry: string;
+  arr: number;
+  segment: Account['segment'];
+  total_mentions: number;
+  top_themes: TopAccountTheme[];
+}
+
+export interface ListTopAccountsOutput {
+  accounts: TopAccountRow[];
+  filters: {
+    limit: number;
+    segment: AccountSegmentFilter;
+    themes_per_account: number;
+  };
+  provenance: {
+    source: 'ClickHouse';
+    tables: string[];
+  };
 }
 
 export interface AccountThemeSignal {

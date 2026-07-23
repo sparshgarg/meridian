@@ -93,6 +93,7 @@ export const AnswerPlanSchema = z.object({
       .array(
         z.enum([
           'find_accounts',
+          'list_top_accounts',
           'get_account_signals',
           'get_theme_trends',
           'get_competitive_position',

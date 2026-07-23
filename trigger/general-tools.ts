@@ -2,6 +2,7 @@ import { tool } from 'ai';
 import { chat } from '@trigger.dev/sdk/ai';
 import { z } from 'zod';
 import { findAccounts, getAccountSignals } from '@/lib/queries/account-signals';
+import { listTopAccounts } from '@/lib/queries/top-accounts';
 import { getCompetitivePosition } from '@/lib/queries/competitive-position';
 import { getImpactProjection } from '@/lib/queries/impact-projection';
 import { listOpportunitiesRanked } from '@/lib/queries/opportunities-ranked';
@@ -184,7 +185,7 @@ export const createGeneralTools = (messageId: string) => {
   }),
   find_accounts: tool({
     description:
-      'Resolve an account or customer name from the ClickHouse CDC replica before requesting account signals.',
+      'Resolve a SPECIFIC company/customer name (e.g. "Figma", "Airtable") from ClickHouse CDC accounts. Do NOT use for portfolio questions like "top customers", "who wants X", or full natural-language questions — use list_top_accounts instead.',
     inputSchema: z.object({ query: z.string().min(1), limit: z.number().int().min(1).max(10).optional() }),
     execute: async ({ query, limit }) => {
       const label = `Resolving account: ${query}`;
@@ -207,21 +208,79 @@ export const createGeneralTools = (messageId: string) => {
         status: {
           id: statusId,
           label,
-          detail: `${result.matches.length} matching accounts · ${Date.now() - started}ms`,
+          detail: result.rejected_as_name_lookup
+            ? `Not a company-name lookup · ${Date.now() - started}ms`
+            : `${result.matches.length} matching accounts · ${Date.now() - started}ms`,
           state: 'done',
           source: 'clickhouse',
           phase: 'querying',
         },
       });
-      if (result.matches.length === 0) {
+      // Only emit "Account not found" for genuine short company-name misses —
+      // never for portfolio questions misrouted into name search.
+      if (!result.rejected_as_name_lookup && result.matches.length === 0) {
         await emitNoData(messageId, 'unknown_account', {
           reason: 'unknown_entity',
           title: 'Account not found',
           message: `I couldn’t find “${query}” in Meridian’s replicated account directory.`,
-          suggestions: ['What does Figma want?', 'Which enterprise themes are strongest?'],
+          suggestions: [
+            'Who are my top customers and what do they want?',
+            'What does Figma want?',
+            'Which enterprise themes are strongest?',
+          ],
         }, emittedNoData);
       }
       return result;
+    },
+  }),
+  list_top_accounts: tool({
+    description:
+      'Rank customers by ARR from ClickHouse (default top 5) and attach each account’s top themes from mentions — use for “top customers”, “biggest accounts”, “who are my customers and what do they want”. Optional segment filter.',
+    inputSchema: z.object({
+      limit: z.number().int().min(1).max(15).optional(),
+      segment: z.enum(['enterprise', 'mid_market', 'smb', 'all']).optional(),
+      themes_per_account: z.number().int().min(1).max(5).optional(),
+    }),
+    execute: async ({ limit, segment, themes_per_account }) => {
+      const data = await runVisualTool(
+        messageId,
+        'top_accounts',
+        'Querying ClickHouse: top accounts by ARR + wants',
+        'Top customers by ARR',
+        'ranking',
+        () => listTopAccounts({ limit, segment, themes_per_account }),
+        (result) => {
+          if (result.accounts.length === 0) {
+            return {
+              type: 'no_data',
+              data: {
+                reason: 'known_no_evidence',
+                title: 'No matching accounts',
+                message: 'I couldn’t find accounts for that segment filter in ClickHouse.',
+                suggestions: [
+                  'Who are my top customers and what do they want?',
+                  'What does Figma want?',
+                ],
+              },
+            };
+          }
+          return { type: 'top_accounts', data: result };
+        },
+        (result, elapsed) =>
+          `${result.accounts.length} accounts · ${result.provenance.tables.join(' + ')} · ${elapsed}ms`,
+      );
+      if (data.accounts.length === 0) {
+        await recordNoData(emittedNoData, {
+          reason: 'known_no_evidence',
+          title: 'No matching accounts',
+          message: 'I couldn’t find accounts for that segment filter in ClickHouse.',
+          suggestions: [
+            'Who are my top customers and what do they want?',
+            'What does Figma want?',
+          ],
+        });
+      }
+      return data;
     },
   }),
   get_account_signals: tool({

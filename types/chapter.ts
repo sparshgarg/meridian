@@ -5,6 +5,7 @@ import type {
   GetImpactProjectionOutput,
   GetThemeEvidenceOutput,
   ListOpportunitiesOutput,
+  ListTopAccountsOutput,
 } from './agent-tools';
 import type { DynamicChartSpec, TextFallback } from './dynamic-chart';
 import type { ThemeId } from './theme';
@@ -93,6 +94,7 @@ export type ChapterVisual =
   | { type: 'impact_waterfall'; data: GetImpactProjectionOutput }
   | { type: 'impact_breakdown'; data: GetImpactProjectionOutput }
   | { type: 'account_snapshot'; data: GetAccountSignalsOutput }
+  | { type: 'top_accounts'; data: ListTopAccountsOutput }
   | { type: 'trend_lines'; data: { series: TrendSeries[] } }
   | { type: 'comparison_bars'; data: CompareSignalsOutput }
   | { type: 'source_mix'; data: CompareSignalsOutput }

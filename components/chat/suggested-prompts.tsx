@@ -11,7 +11,7 @@ const SUGGESTIONS = [
   },
   {
     icon: Building2,
-    label: 'What does Figma want?',
+    label: 'Who are my top customers and what do they want?',
     tint: 'text-coral bg-coral-soft',
   },
   {
@@ -26,7 +26,7 @@ const SUGGESTIONS = [
   },
   {
     icon: Layers3,
-    label: 'Are support tickets or interviews driving multi-entity demand?',
+    label: 'What does Figma want?',
     tint: 'text-coral bg-coral-soft',
   },
 ];
@@ -37,6 +37,7 @@ const MORE_SUGGESTIONS = [
   'What do customers in healthcare want?',
   'Where are competitors beating us on usage-based billing?',
   'What is the ARR impact of usage-based billing?',
+  'Who are my top enterprise customers?',
 ];
 
 interface SuggestedPromptsProps {

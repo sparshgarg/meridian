@@ -50,12 +50,12 @@ const byVisual = (types: Set<VisualType>): string[] => {
       'Which themes are growing fastest over the last 90 days?',
     ];
   }
-  if (types.has('account_snapshot')) {
+  if (types.has('account_snapshot') || types.has('top_accounts')) {
     return [
+      'Who are my top customers and what do they want?',
       'What should we prioritize next quarter?',
       'Compare usage-based billing with dunning for enterprise accounts',
       'Which themes are growing fastest over the last 90 days?',
-      'Where are competitors beating us on usage-based billing?',
     ];
   }
   if (types.has('trend_lines')) {
